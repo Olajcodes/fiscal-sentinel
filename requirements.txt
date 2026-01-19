@@ -1,0 +1,6 @@
+# fastpi
+google-genai
+opik
+uvicorn
+chromadb
+dotenv
