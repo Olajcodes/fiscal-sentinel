@@ -31,9 +31,9 @@ fiscal-sentinel/
 ├── frontend/           # Streamlit UI
 ├── main.py             # FastAPI Backend
 └── requirements.txt    # Dependencies
+```
 
-
-##⚡ Getting Started
+## ⚡ Getting Started
 ### 1. Clone the Repository
 ```Bash
 
