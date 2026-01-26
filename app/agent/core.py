@@ -1,156 +1,124 @@
-# Main Gemini loop (run_sentinel)
 import os
 import json
-from google import genai
-from google.genai import types
+from openai import OpenAI
 from dotenv import load_dotenv
-
-# OPIK IMPORTS
 import opik
 from opik import track
+from app.agent.prompts import FISCAL_SENTINEL_PROMPT
 
-# IMPORT TOOLS & PROMPTS
-try:
-    from app.agent.prompts import FISCAL_SENTINEL_PROMPT
-except ImportError:
-    FISCAL_SENTINEL_PROMPT = "You are Fiscal Sentinel. Find lost money. Be aggressive."
+# LOAD ENV & RAG
+load_dotenv()
+opik.configure(use_local=False)
+client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
+# CHECK RAG
 try:
     from app.data.vector_db import LegalKnowledgeBase
     kb = LegalKnowledgeBase()
     has_rag = True
 except:
-    # Safe fallback if RAG isn't ready
     has_rag = False
 
-load_dotenv()
-
-# CONFIGURE OPIK
-opik.configure(use_local=False)
-
-# INITIALIZE GEMINI
-client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
-
-# --- DEFINE TOOLS ---
-
+# --- TOOLS ---
 @track
 def retrieve_laws(query: str):
-    """Searches for consumer protection laws."""
+    """Searches legal docs."""
     print(f"🔎 TOOL CALL: Searching laws for '{query}'...")
-    if has_rag:
-        return kb.search_laws(query)
-    else:
-        # Mock responses for testing
-        return f"Found law regarding '{query}': Companies must notify users 30 days before price hikes (FTC Rule)."
+    if has_rag: return kb.search_laws(query)
+    return "Mock Law: FTC Rule 404 - Notifications required."
 
 @track
 def draft_letter(merchant: str, issue: str):
-    """Drafts a dispute letter."""
+    """Drafts a letter."""
     print(f"✍️ TOOL CALL: Drafting letter for {merchant}...")
-    return f"DRAFT SAVED: Formal dispute letter to {merchant} regarding {issue}."
+    return f"To {merchant}:\nWe formally dispute the charge regarding {issue}.\nSigned, Fiscal Sentinel."
 
-# --- MAIN AGENT LOOP ---
+# --- TOOL DEFINITIONS (OpenAI Format) ---
+tools_schema = [
+    {
+        "type": "function",
+        "function": {
+            "name": "retrieve_laws",
+            "description": "Search for relevant consumer protection laws.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Legal topic to search"}
+                },
+                "required": ["query"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "draft_letter",
+            "description": "Draft a formal dispute or cancellation letter.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "merchant": {"type": "string"},
+                    "issue": {"type": "string"}
+                },
+                "required": ["merchant", "issue"]
+            }
+        }
+    }
+]
 
+# --- MAIN AGENT ---
 @track(name="Fiscal_Sentinel_Run")
 def run_sentinel(user_input: str, transactions: list):
-    """
-    Main entry point for the agent.
-    """
-    
-    # 1. Define Tools
-    tools = [
-        types.Tool(function_declarations=[
-            types.FunctionDeclaration(
-                name="retrieve_laws",
-                description="Search for relevant consumer protection laws.",
-                parameters=types.Schema(
-                    type="OBJECT",
-                    properties={
-                        "query": types.Schema(type="STRING", description="Legal topic to search")
-                    },
-                    required=["query"]
-                )
-            ),
-            types.FunctionDeclaration(
-                name="draft_letter",
-                description="Draft a formal dispute or cancellation letter.",
-                parameters=types.Schema(
-                    type="OBJECT",
-                    properties={
-                        "merchant": types.Schema(type="STRING"),
-                        "issue": types.Schema(type="STRING")
-                    },
-                    required=["merchant", "issue"]
-                )
-            )
-        ])
+    # Prepare Context
+    tx_context = json.dumps(transactions, indent=2)
+    messages = [
+        {"role": "system", "content": FISCAL_SENTINEL_PROMPT},
+        {"role": "user", "content": f"TRANSACTIONS:\n{tx_context}\n\nUSER REQUEST:\n{user_input}"}
     ]
 
-    # 2. Build Context
-    tx_context = json.dumps(transactions, indent=2)
-    full_prompt = f"""
-    {FISCAL_SENTINEL_PROMPT}
-    
-    TRANSACTION DATA:
-    {tx_context}
-    
-    USER REQUEST:
-    {user_input}
-    """
-
-    # 3. First Call to Gemini
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=full_prompt,
-        config=types.GenerateContentConfig(tools=tools)
+    # Call OpenAI
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",  # Stable and fast
+        messages=messages,
+        tools=tools_schema,
+        tool_choice="auto" 
     )
 
-    # 4. Handle Tool Calls
-    # We maintain a manual history list to feed back to the model
-    chat_history = [
-        types.Content(role="user", parts=[types.Part(text=full_prompt)]),
-        types.Content(role="model", parts=response.candidates[0].content.parts)
-    ]
+    response_message = response.choices[0].message
+    tool_calls = response_message.tool_calls
 
-    if response.function_calls:
-        # COLLECT all tool outputs into a single text block
-        # This prevents the "User, User, User" role error
-        tool_outputs_text = "Here are the results from the tools you called:\n"
+    # Handle Tool Calls
+    if tool_calls:
+        # Append the model's request to history
+        messages.append(response_message)
         
-        for call in response.function_calls:
-            tool_name = call.name
-            tool_args = call.args
+        for tool_call in tool_calls:
+            function_name = tool_call.function.name
+            function_args = json.loads(tool_call.function.arguments)
             
-            # Execute
-            tool_result = "Error executing tool"
-            if tool_name == "retrieve_laws":
-                tool_result = retrieve_laws(**tool_args)
-            elif tool_name == "draft_letter":
-                tool_result = draft_letter(**tool_args)
+            # Execute Tool
+            function_response = ""
+            if function_name == "retrieve_laws":
+                function_response = retrieve_laws(query=function_args.get("query"))
+            elif function_name == "draft_letter":
+                function_response = draft_letter(
+                    merchant=function_args.get("merchant"),
+                    issue=function_args.get("issue")
+                )
             
-            tool_outputs_text += f"\n--- OUTPUT for {tool_name} ---\n{tool_result}\n"
-        
-        # Append the AGGREGATED result as ONE user message
-        chat_history.append(
-            types.Content(
-                role="user", 
-                parts=[types.Part(text=tool_outputs_text)]
-            )
-        )
-        
-        # 5. Final Answer
-        final_response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=chat_history
-        )
-        
-        if final_response.text:
-            return final_response.text
-        else:
-            return "⚠️ Agent executed tools but returned no text. (Check Safety Settings)"
+            # Feed back to model
+            messages.append({
+                "role": "tool",
+                "tool_call_id": tool_call.id,
+                "name": function_name,
+                "content": function_response,
+            })
 
-    # If no tools were called, just return the first response
-    if response.text:
-        return response.text
-    else:
-        return "⚠️ Agent returned no text and no tool calls."
+        # Final Answer
+        second_response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=messages
+        )
+        return second_response.choices[0].message.content
+
+    return response_message.content

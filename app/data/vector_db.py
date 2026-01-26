@@ -15,8 +15,6 @@ class LegalKnowledgeBase:
         # Initialize ChromaDB (Persistent means it saves to disk, so you don't reload PDFs every run)
         self.client = chromadb.PersistentClient(path=DB_PATH)
         
-        # Use a free, high-quality embedding model (built-in to Chroma)
-        # You can swap this for GoogleGeminiEmbeddings if you want deeper integration later
         self.embedding_fn = embedding_functions.SentenceTransformerEmbeddingFunction(
             model_name="all-MiniLM-L6-v2"
         )
@@ -29,7 +27,7 @@ class LegalKnowledgeBase:
     def ingest_documents(self):
         """
         Reads all PDFs in app/data/documents/ and stores them in the vector DB.
-        Run this ONCE or whenever you add new laws.
+        Run this ONCE or whenever new laws are added.
         """
         if not os.path.exists(DOCS_DIR):
             os.makedirs(DOCS_DIR)
@@ -53,7 +51,7 @@ class LegalKnowledgeBase:
             metadatas = []
             ids = []
             
-            # Simple chunking by page (for Hackathon speed)
+            # Simple chunking by page
             for i, page in enumerate(reader.pages):
                 text = page.extract_text()
                 if text:
@@ -75,7 +73,7 @@ class LegalKnowledgeBase:
 
     def search_laws(self, query: str, n_results=2):
         """
-        Retrieves the most relevant legal text for a given query.
+        Retrieves the most relevant legal text for a given query from the DB.
         """
         results = self.collection.query(
             query_texts=[query],
@@ -89,21 +87,10 @@ class LegalKnowledgeBase:
         context = ""
         for i, doc in enumerate(results["documents"][0]):
             source = results["metadatas"][0][i]["source"]
-            context += f"---\nSOURCE: {source}\nEXCERPT: {doc}\n---\n"
+            context += f"---\nSOURCE: {source}\nEXCERPT: {doc[:500]}\n---\n"
             
         return context
 
-# ---------------------------------------------------------
-# STANDALONE SCRIPT RUNNER
-# Run this file directly to ingest data: `python app/data/vector_db.py`
-# ---------------------------------------------------------
 if __name__ == "__main__":
     kb = LegalKnowledgeBase()
-    
-    # 1. Ingest Data (Put a dummy PDF in 'app/data/documents' first!)
     kb.ingest_documents()
-    
-    # 2. Test Search
-    test_query = "Can a gym raise my price without telling me?"
-    print(f"\n🔎 Testing Search for: '{test_query}'")
-    print(kb.search_laws(test_query))
