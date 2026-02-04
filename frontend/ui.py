@@ -23,11 +23,15 @@ for m in st.session_state.msgs:
     with st.chat_message(m["role"]): st.write(m["content"])
 
 if prompt := st.chat_input("Scan for threats..."):
-    st.session_state.msgs.append({"role": "user", "content": prompt})
+    history = st.session_state.msgs[:]
     with st.chat_message("user"): st.write(prompt)
     
     with st.spinner("Analyzing..."):
-        res = requests.post(f"{API_URL}/analyze", json={"query": prompt})
+        res = requests.post(
+            f"{API_URL}/analyze",
+            json={"query": prompt, "history": history},
+        )
         reply = res.json()["response"]
+        st.session_state.msgs.append({"role": "user", "content": prompt})
         st.session_state.msgs.append({"role": "assistant", "content": reply})
         with st.chat_message("assistant"): st.write(reply)

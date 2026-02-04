@@ -3,3 +3,4 @@ a_venv/
 a_venv\
 .vscode
 *__pycache__
+*venv

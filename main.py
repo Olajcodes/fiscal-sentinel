@@ -10,6 +10,7 @@ app = FastAPI()
 
 class Request(BaseModel):
     query: str
+    history: list | None = None
 
 @app.get("/transactions")
 def get_tx():
@@ -18,7 +19,7 @@ def get_tx():
 @app.post("/analyze")
 def analyze(req: Request):
     tx = get_mock_transactions()
-    res = run_sentinel(req.query, tx)
+    res = run_sentinel(req.query, tx, history=req.history)
     return {"response": res}
 
 if __name__ == "__main__":

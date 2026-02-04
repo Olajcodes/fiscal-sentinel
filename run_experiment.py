@@ -2,7 +2,7 @@ import opik
 from opik.evaluation import evaluate
 from app.agent.core import run_sentinel
 from app.data.mock_plaid import get_mock_transactions
-from app.evaluation.metrics import LegalCitationMetric
+from app.evaluation.metrics import LegalCitationMetric, ActionabilityMetric, ConversationMetric
 import time
 
 # Initialize Opik Client
@@ -10,6 +10,7 @@ client = opik.Opik()
 
 # Define the Test Data
 raw_data = [
+    {"input": "Hi"},
     {"input": "I noticed a hidden fee from my bank. Can I fight it?"},
     {"input": "Netflix raised my price without asking. Is that legal?"},
     {"input": "I want to cancel my gym but they said I have to come in person."},
@@ -32,7 +33,7 @@ except Exception as e:
 def eval_task(item):
     tx = get_mock_transactions()
     user_input = item["input"] 
-    response = run_sentinel(user_input, tx)
+    response = run_sentinel(user_input, tx, history=[])
     return { "output": response }
 
 # Run the Evaluation
@@ -47,7 +48,7 @@ if __name__ == "__main__":
         experiment_name=exp_name,
         dataset=dataset,
         task=eval_task,
-        scoring_metrics=[LegalCitationMetric()],
+        scoring_metrics=[LegalCitationMetric(), ActionabilityMetric(), ConversationMetric()],
         task_threads=1 # Keeps it slow and steady to avoid 503 errors
     )
     

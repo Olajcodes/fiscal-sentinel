@@ -46,3 +46,71 @@ class LegalCitationMetric(BaseMetric):
             value=value,
             reason=reason
         )
+
+
+class ActionabilityMetric(BaseMetric):
+    """
+    Rewards drafting letters only when explicitly requested.
+    """
+    def __init__(self, name="Actionability_Score"):
+        super().__init__(name=name)
+
+    def score(self, **kwargs):
+        user_input = kwargs.get("input") or kwargs.get("prompt") or kwargs.get("query") or ""
+        output = kwargs.get("output") or kwargs.get("model_output") or kwargs.get("response")
+
+        if not output or not isinstance(output, str):
+            return score_result.ScoreResult(
+                name=self.name,
+                value=0.0,
+                reason="Agent returned no output",
+            )
+
+        wants_letter = any(
+            k in user_input.lower()
+            for k in ["draft", "write a letter", "letter", "cancellation", "dispute"]
+        )
+        looks_like_letter = any(
+            k in output.lower()
+            for k in ["dear", "to whom it may concern", "subject:", "sincerely", "regards,"]
+        )
+
+        if wants_letter and looks_like_letter:
+            return score_result.ScoreResult(name=self.name, value=1.0, reason="Letter drafted on request")
+        if (not wants_letter) and (not looks_like_letter):
+            return score_result.ScoreResult(name=self.name, value=1.0, reason="No letter when not requested")
+        return score_result.ScoreResult(name=self.name, value=0.0, reason="Mismatch between request and output")
+
+
+class ConversationMetric(BaseMetric):
+    """
+    Checks if greetings are handled conversationally (no aggressive legal action).
+    """
+    def __init__(self, name="Conversation_Score"):
+        super().__init__(name=name)
+
+    def score(self, **kwargs):
+        user_input = kwargs.get("input") or kwargs.get("prompt") or kwargs.get("query") or ""
+        output = kwargs.get("output") or kwargs.get("model_output") or kwargs.get("response")
+
+        if not output or not isinstance(output, str):
+            return score_result.ScoreResult(
+                name=self.name,
+                value=0.0,
+                reason="Agent returned no output",
+            )
+
+        is_greeting = any(
+            g == user_input.lower().strip()
+            for g in ["hi", "hello", "hey", "good morning", "good afternoon", "good evening"]
+        )
+        mentions_legal = any(
+            k in output.lower()
+            for k in ["ftc", "regulation", "law", "agreement", "clause"]
+        )
+
+        if is_greeting and not mentions_legal:
+            return score_result.ScoreResult(name=self.name, value=1.0, reason="Greeting handled conversationally")
+        if not is_greeting:
+            return score_result.ScoreResult(name=self.name, value=1.0, reason="Not a greeting scenario")
+        return score_result.ScoreResult(name=self.name, value=0.0, reason="Overly legal response to greeting")
