@@ -1,0 +1,271 @@
+/* app/globals.css */
+@import "tailwindcss";
+
+:root {
+  /* Light theme colors */
+  --background: #f9fafb;
+  --foreground: #111827;
+  
+  /* Primary colors - Intelligence Grey */
+  --primary: 220 13% 18%; /* #111827 */
+  --primary-foreground: 210 40% 98%;
+  
+  /* Secondary colors */
+  --secondary: 220 14% 96%; /* #f3f4f6 */
+  --secondary-foreground: 220 13% 18%;
+  
+  /* Accent colors (Cyan signal) */
+  --accent: 191 91% 36%; /* #22d3ee */
+  --accent-foreground: 210 40% 98%;
+  
+  /* Muted colors */
+  --muted: 220 14% 96%;
+  --muted-foreground: 215 16% 47%; /* #6b7280 */
+  
+  /* Border and input */
+  --border: 220 13% 91%; /* #e5e7eb */
+  --input: 220 13% 91%;
+  
+  /* Radius */
+  --radius: 0.75rem;
+  
+  /* Gradient colors */
+  --gradient-from: #111827; /* charcoal */
+  --gradient-to: #374151; /* slate */
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  --shadow-md: 0 6px 12px -1px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 25px -3px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 50px -12px rgb(0 0 0 / 0.25);
+}
+
+.dark {
+  /* Dark theme colors */
+  --background: #030712; /* near-black */
+  --foreground: #e5e7eb;
+  
+  /* Primary colors for dark mode */
+  --primary: 210 40% 98%;
+  --primary-foreground: 220 13% 18%;
+  
+  /* Secondary colors for dark mode */
+  --secondary: 215 28% 17%; /* #1f2933 */
+  --secondary-foreground: 210 40% 98%;
+  
+  /* Accent colors for dark mode */
+  --accent: 191 91% 36%; /* cyan */
+  --accent-foreground: 210 40% 98%;
+  
+  /* Muted colors for dark mode */
+  --muted: 215 28% 17%;
+  --muted-foreground: 215 20% 65%;
+  
+  /* Border and input for dark mode */
+  --border: 215 28% 17%;
+  --input: 215 28% 17%;
+  
+  /* Gradient colors for dark mode */
+  --gradient-from: #020617;
+  --gradient-to: #111827;
+}
+
+@theme inline {
+  /* Base colors */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  
+  /* Font families */
+  --font-sans: var(--font-geist-sans, ui-sans-serif, system-ui, sans-serif);
+  --font-mono: var(--font-geist-mono, ui-monospace, monospace);
+  
+  /* Border radius */
+  --radius-sm: calc(var(--radius) - 0.5rem);
+  --radius-md: calc(var(--radius) - 0.25rem);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 0.5rem);
+  
+  /* Border colors */
+  --color-border: hsl(var(--border));
+  
+  /* Input colors */
+  --color-input: hsl(var(--input));
+  
+  /* Ring colors */
+  --color-ring: hsl(var(--accent));
+  
+  /* Background colors */
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  
+  /* Gradients */
+  --gradient-primary: linear-gradient(135deg, var(--gradient-from) 0%, var(--gradient-to) 100%);
+  --gradient-primary-hover: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--gradient-from) 85%, black) 0%,
+    color-mix(in srgb, var(--gradient-to) 85%, black) 100%
+  );
+  
+  /* Animations */
+  --animate-fade-in: fade-in 0.5s ease-out;
+  --animate-slide-up: slide-up 0.3s ease-out;
+  --animate-pulse: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  
+  /* Keyframes */
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  
+  @keyframes slide-up {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+  
+  /* Shadows */
+  --shadow-sm: var(--shadow-sm);
+  --shadow: var(--shadow);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-xl: var(--shadow-xl);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Custom utility classes */
+@layer utilities {
+  .text-gradient {
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  
+  .bg-gradient {
+    background: var(--gradient-primary);
+  }
+  
+  .bg-gradient-hover:hover {
+    background: var(--gradient-primary-hover);
+  }
+  
+  .card {
+    border: 1px solid hsl(var(--border));
+    background: var(--background);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    transition: all 0.2s ease;
+  }
+  
+  .card:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+  }
+  
+  .glass {
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  
+  .dark .glass {
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+  }
+  
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius);
+    font-weight: 500;
+    transition: all 0.2s ease;
+    padding: 0.5rem 1rem;
+    border: 1px solid transparent;
+    cursor: pointer;
+  }
+  
+  .btn-primary {
+    background: var(--gradient-primary);
+    color: white;
+  }
+  
+  .btn-primary:hover {
+    background: var(--gradient-primary-hover);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+  }
+  
+  .btn-secondary {
+    background: hsl(var(--secondary));
+    color: hsl(var(--secondary-foreground));
+    border: 1px solid hsl(var(--border));
+  }
+  
+  .btn-secondary:hover {
+    background: hsl(var(--muted));
+    transform: translateY(-1px);
+  }
+  
+  .input {
+    width: 100%;
+    border-radius: var(--radius);
+    border: 1px solid hsl(var(--border));
+    background: var(--background);
+    padding: 0.5rem 2.4rem;
+    font-size: 0.875rem;
+    transition: all 0.2s ease;
+  }
+  
+  .input:focus {
+    outline: none;
+    border-color: hsl(var(--accent));
+    box-shadow: 0 0 0 2px hsl(var(--accent) / 0.15);
+  }
+}
+
+/* Container queries */
+@container (min-width: 640px) {
+  .container-sm { max-width: 640px; }
+}
+
+@container (min-width: 768px) {
+  .container-md { max-width: 768px; }
+}
+
+@container (min-width: 1024px) {
+  .container-lg { max-width: 1024px; }
+}
+
+@container (min-width: 1280px) {
+  .container-xl { max-width: 1280px; }
+}
