@@ -114,3 +114,73 @@ class ConversationMetric(BaseMetric):
         if not is_greeting:
             return score_result.ScoreResult(name=self.name, value=1.0, reason="Not a greeting scenario")
         return score_result.ScoreResult(name=self.name, value=0.0, reason="Overly legal response to greeting")
+
+
+class RetrievalDisciplineMetric(BaseMetric):
+    """
+    Rewards citing evidence only when the user asks for legal justification or a letter.
+    """
+    def __init__(self, name="Retrieval_Discipline_Score"):
+        super().__init__(name=name)
+
+    def score(self, **kwargs):
+        user_input = kwargs.get("input") or kwargs.get("prompt") or kwargs.get("query") or ""
+        output = kwargs.get("output") or kwargs.get("model_output") or kwargs.get("response")
+
+        if not output or not isinstance(output, str):
+            return score_result.ScoreResult(
+                name=self.name,
+                value=0.0,
+                reason="Agent returned no output",
+            )
+
+        user_text = user_input.lower()
+        wants_evidence = any(
+            k in user_text
+            for k in [
+                "is it legal",
+                "legal",
+                "law",
+                "regulation",
+                "ftc",
+                "rights",
+                "statute",
+                "rule",
+                "act",
+                "draft",
+                "write a letter",
+                "letter",
+                "cancellation",
+                "dispute",
+                "can i fight",
+                "fight it",
+            ]
+        )
+
+        output_text = output.lower()
+        has_citation = any(
+            k in output_text
+            for k in [
+                "source:",
+                "sources:",
+                ".pdf",
+            ]
+        )
+
+        if wants_evidence and has_citation:
+            return score_result.ScoreResult(
+                name=self.name,
+                value=1.0,
+                reason="Cited evidence when requested",
+            )
+        if (not wants_evidence) and (not has_citation):
+            return score_result.ScoreResult(
+                name=self.name,
+                value=1.0,
+                reason="No citations when not requested",
+            )
+        return score_result.ScoreResult(
+            name=self.name,
+            value=0.0,
+            reason="Mismatch between request and citation behavior",
+        )
