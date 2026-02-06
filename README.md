@@ -1,103 +1,175 @@
-# 🛡️ Fiscal Sentinel
+Got it 👍 — this should **sit alongside your general README**, not repeat it.
 
-**The AI Financial Bodyguard that fights corporate bureaucracy for you.**
+Below is a **frontend-specific `README.md`** that is clearly scoped to the **UI layer only**, assumes the backend exists (or will), and is written the way a serious startup/frontend repo would be.
 
-Fiscal Sentinel is an autonomous agent that protects users from predatory financial practices. It connects to bank data, identifies "traps" (like hidden fees, price hikes, or unused subscriptions), and actively drafts legal dispute letters to resolve them.
+---
 
-## 🚀 Features
+```md
+# Fiscal Sentinel — Frontend (User Interface)
 
-* **Threat Detection:** Automatically scans transaction history for anomalies (e.g., a Netflix subscription that increased by $3 without notice).
-* **Legal RAG Brain:** Uses **Retrieval Augmented Generation (RAG)** to search actual PDF laws (FTC Rules, Banking Agreements) to justify its disputes.
-* **Auto-Drafting:** Generates formal, legally-sound cancellation or dispute letters ready for the user to sign.
-* **Safety Evaluation:** Integrated with **Opik** to track agent performance and ensure compliant, safe financial advice.
+This repository contains the **frontend user interface** for **Fiscal Sentinel**, built with **Next.js App Router**, **TypeScript**, and **Tailwind CSS**.
 
-## 🛠️ Tech Stack
+The frontend is responsible for:
+- Public-facing marketing pages
+- Application layout and navigation
+- User interaction and UI state
+- Preparing integration points for backend APIs and AI services
 
-* **Frontend:** Streamlit (Python)
-* **Backend:** FastAPI & Python
-* **AI Model:** OpenAI GPT-4o (via API)
-* **Knowledge Base:** ChromaDB (Vector Store) + PyPDF
-* **Evaluation:** Opik (by Comet) for Tracing & Metrics
-* **Data Source:** Mock Plaid Transaction Data
+> This README intentionally focuses **only on the frontend**.  
+> For product vision, backend architecture, and system-wide details, refer to the main project README.
 
-## 📂 Project Structure
+---
+
+## 🎯 Purpose of the Frontend
+
+The Fiscal Sentinel UI is designed to:
+- Communicate trust (fintech-grade UX)
+- Clearly explain value to users
+- Provide a scalable base for dashboards, alerts, and dispute workflows
+- Remain modular as product features evolve
+
+---
+
+## 🧱 Tech Stack
+
+- **Framework:** Next.js (App Router)
+- **Language:** TypeScript
+- **Styling:** Tailwind CSS
+- **Routing:** App Router with route groups
+- **State Strategy:** Layout-driven (API-ready)
+- **Deployment Target:** Vercel
+
+---
+
+##  Frontend Structure
+
+```
+
+app/
+├── layout.tsx              # Global application layout
+├── globals.css             # Tailwind + global styles
+│
+├── (external pages)/             # Public-facing pages (landing, marketing)
+│   ├── layout.tsx          # External pages layout
+│   └── page.tsx            # Landing page
+│
+├── (dashboard)/            # Authenticated app area (in progress)
+│   ├── layout.tsx
+│   └── page.tsx
+│
+└── api/                    # Frontend API routes (in progress)
+
+````
+
+---
+
+## Layout Strategy
+
+### Global Layout
+`app/layout.tsx`
+- Global fonts
+- Metadata
+- Providers (future auth, theme, state)
+- Shared UI elements
+
+### External Pages Layout
+`app/(external pages)/layout.tsx`
+- Clean separation for external pages
+
+
+---
+
+##  Local Development
+
+### Install dependencies
+```bash
+npm install
+# or
+yarn install
+````
+
+### Start development server
 
 ```bash
-fiscal-sentinel/
-├── app/
-│   ├── agent/          # OpenAI Logic & Prompts
-│   ├── data/           # Mock Data & Vector DB
-│   └── evaluation/     # Opik Metrics & Experiments
-├── frontend/           # Streamlit UI
-├── main.py             # FastAPI Backend
-└── requirements.txt    # Dependencies
+npm run dev
+# or
+yarn dev
 ```
 
-## ⚡ Getting Started
-### 1. Clone the Repository
-```Bash
+Access the app at:
 
-git clone [https://github.com/Olajcodes/fiscal-sentinel](https://github.com/Olajcodes/fiscal-sentinel.git)
-cd fiscal-sentinel
+```
+http://localhost:3000
 ```
 
-### 2. Set up Environment
-Create a .env file in the root directory and add your keys:
-```Bash
+---
 
-OPENAI_API_KEY=sk-proj-....
-OPIK_API_KEY=.... 
+##  Styling Guidelines
+
+* Tailwind CSS is the primary styling system
+* Global styles live in `app/globals.css`
+* Prefer **layout-level styling** over page-level overrides
+* Keep components presentational and reusable
+
+
+Design tokens and CSS variables can be introduced for theming as the UI matures.
+
+---
+
+##  Environment Variables (Frontend)
+
+Create a `.env.local` file:
+
+```env
+NEXT_PUBLIC_APP_NAME=Fiscal Sentinel
 ```
 
-### 3. Install Dependencies
-```Bash
+Only **public-safe variables** should be exposed here.
+Sensitive credentials must never live in the frontend.
 
-pip install -r requirements.txt
+---
+
+## Backend Integration (Planned)
+
+The frontend is structured to integrate cleanly with:
+
+* Authentication services
+* Financial data providers
+* AI-powered analysis endpoints
+* Dispute letter generation services
+
+All integrations will be introduced behind typed API layers.
+
+---
+
+## 📦 Production Build
+
+```bash
+npm run build
+npm run start
 ```
 
-### 4. Ingest Legal Data (Build the Brain)
-Before running the app, you need to parse the PDF documents into the vector database:
+Recommended hosting: **Vercel**
 
-```Bash
+---
 
-python app/data/vector_db.py 
-```
-Make sure you have PDFs inside app/data/documents/.
+## 🧠 Frontend Roadmap
 
-### 5. Run the Application
-You need two terminal windows:
+* Authenticated dashboard UI
+* Transaction and subscription views
+* Alerts & savings insights
+* Dispute letter preview and export UI
+* Accessibility and performance hardening
+* Fintech-grade UX polish
 
-Terminal 1 (Backend):
+---
 
-```Bash
+## 📜 License
 
-python main.py
-```
+Private / Proprietary
+(Frontend codebase — subject to change)
 
-Terminal 2 (Frontend):
+---
 
-```Bash
 
-streamlit run frontend/ui.py
-```
 
-### 🧪 Evaluation (Opik)
-To run the safety evaluation suite and see the agent's scores:
-
-```Bash
-
-python run_experiment.py
-```
-
-Check your Opik Dashboard to see the LegalComplianceScore for each test case.
-
-## 🔮 Roadmap (Upcoming Features)
-
-We are actively working on Version 2.0 for the final hackathon submission:
-
-* **UI Migration:** Moving from Streamlit to a **Next.js/React** dashboard for a polished user experience.
-* **Advanced Agentic Loops:** Implementing multi-turn reasoning where the agent can "negotiate" back-and-forth scenarios.
-* **Expanded Datasets:** Increasing the test coverage to include credit card fraud detection and insurance claim disputes.
-
-### 📄 License
-MIT
