@@ -1,103 +1,110 @@
-# 🛡️ Fiscal Sentinel
+﻿# Fiscal Sentinel
 
-**The AI Financial Bodyguard that fights corporate bureaucracy for you.**
+The AI financial assistant that helps users spot questionable charges and draft dispute or cancellation letters **only when requested**.
 
-Fiscal Sentinel is an autonomous agent that protects users from predatory financial practices. It connects to bank data, identifies "traps" (like hidden fees, price hikes, or unused subscriptions), and actively drafts legal dispute letters to resolve them.
+Fiscal Sentinel combines transaction analysis, retrieval-augmented generation (RAG) over consumer agreements/regulations, and a conversational UI with explicit confirmation before drafting letters.
 
-## 🚀 Features
+## Key Behavior
+- Conversational by default. Greetings and general questions do not trigger retrieval or letter drafting.
+- Analysis first. When asked to scan transactions, the agent summarizes findings and asks before drafting a letter.
+- Evidence only when needed. Legal citations are returned only if the user asks about legality, rights, or a letter.
 
-* **Threat Detection:** Automatically scans transaction history for anomalies (e.g., a Netflix subscription that increased by $3 without notice).
-* **Legal RAG Brain:** Uses **Retrieval Augmented Generation (RAG)** to search actual PDF laws (FTC Rules, Banking Agreements) to justify its disputes.
-* **Auto-Drafting:** Generates formal, legally-sound cancellation or dispute letters ready for the user to sign.
-* **Safety Evaluation:** Integrated with **Opik** to track agent performance and ensure compliant, safe financial advice.
+## Tech Stack
+- Frontend: Streamlit
+- Backend: FastAPI
+- Agent Orchestration: LangGraph
+- Model: OpenAI (via API)
+- Knowledge Base: ChromaDB + PyPDF (+ HTML/TXT parsing fallback)
+- Evaluation/Tracing: Opik (Comet)
+- Data: Mock Plaid transactions
 
-## 🛠️ Tech Stack
-
-* **Frontend:** Streamlit (Python)
-* **Backend:** FastAPI & Python
-* **AI Model:** OpenAI GPT-4o (via API)
-* **Knowledge Base:** ChromaDB (Vector Store) + PyPDF
-* **Evaluation:** Opik (by Comet) for Tracing & Metrics
-* **Data Source:** Mock Plaid Transaction Data
-
-## 📂 Project Structure
-
-```bash
+## Project Structure
+```
 fiscal-sentinel/
 ├── app/
-│   ├── agent/          # OpenAI Logic & Prompts
-│   ├── data/           # Mock Data & Vector DB
-│   └── evaluation/     # Opik Metrics & Experiments
+│   ├── agent/          # LangGraph routing + prompts
+│   ├── data/           # Mock data + vector store
+│   └── evaluation/     # Opik metrics and experiments
 ├── frontend/           # Streamlit UI
-├── main.py             # FastAPI Backend
+├── main.py             # FastAPI backend
 └── requirements.txt    # Dependencies
 ```
 
-## ⚡ Getting Started
-### 1. Clone the Repository
-```Bash
-
-git clone [https://github.com/Olajcodes/fiscal-sentinel](https://github.com/Olajcodes/fiscal-sentinel.git)
-cd fiscal-sentinel
+## Quickstart
+1) Create and activate a virtual environment
+```bash
+python -m venv venv
+# Windows PowerShell
+.\venv\Scripts\Activate.ps1
 ```
 
-### 2. Set up Environment
-Create a .env file in the root directory and add your keys:
-```Bash
-
-OPENAI_API_KEY=sk-proj-....
-OPIK_API_KEY=.... 
-```
-
-### 3. Install Dependencies
-```Bash
-
+2) Install dependencies
+```bash
 pip install -r requirements.txt
 ```
 
-### 4. Ingest Legal Data (Build the Brain)
-Before running the app, you need to parse the PDF documents into the vector database:
-
-```Bash
-
-python app/data/vector_db.py 
+3) Configure environment variables
+Create a `.env` file in the repo root:
 ```
-Make sure you have PDFs inside app/data/documents/.
+OPENAI_API_KEY=sk-...
+OPIK_API_KEY=...
+```
 
-### 5. Run the Application
-You need two terminal windows:
+## RAG Data (Recommended Competition Set)
+You can download documents locally (recommended) and ingest them into ChromaDB.
 
+Recommended set (5 merchants + regulations):
+- app/data/documents/netflix_terms.pdf
+- app/data/documents/planet_fitness_terms.pdf
+- app/data/documents/adobe_terms.pdf
+- app/data/documents/spotify_terms.pdf
+- app/data/documents/amazon_terms.pdf
+- app/data/documents/ftc_negative_option_rule.pdf
+- app/data/documents/state_consumer_protection.pdf
+
+Download locally:
+```bash
+python scripts/download_documents.py
+```
+
+Ingest into ChromaDB:
+```bash
+python app/data/vector_db.py
+```
+
+Notes:
+- The downloader may fetch HTML pages; ingestion handles PDF/HTML/TXT.
+- Do not commit the downloaded PDFs or `app/data/chroma_db_store`.
+
+## Run the App
 Terminal 1 (Backend):
-
-```Bash
-
+```bash
 python main.py
 ```
 
 Terminal 2 (Frontend):
-
-```Bash
-
+```bash
 streamlit run frontend/ui.py
 ```
 
-### 🧪 Evaluation (Opik)
-To run the safety evaluation suite and see the agent's scores:
+UI note: after analysis, a **Draft the letter** button appears to confirm intent before letter generation.
 
-```Bash
-
+## Evaluation (Opik)
+Run the evaluation suite:
+```bash
 python run_experiment.py
 ```
 
-Check your Opik Dashboard to see the LegalComplianceScore for each test case.
+Custom metrics live in `app/evaluation/metrics.py`:
+- LegalCitationMetric
+- ActionabilityMetric
+- ConversationMetric
+- RetrievalDisciplineMetric
 
-## 🔮 Roadmap (Upcoming Features)
+## Roadmap
+- Frontend upgrade to React/Next.js
+- Deeper multi-turn negotiation workflows
+- Expanded datasets and scenario coverage
 
-We are actively working on Version 2.0 for the final hackathon submission:
-
-* **UI Migration:** Moving from Streamlit to a **Next.js/React** dashboard for a polished user experience.
-* **Advanced Agentic Loops:** Implementing multi-turn reasoning where the agent can "negotiate" back-and-forth scenarios.
-* **Expanded Datasets:** Increasing the test coverage to include credit card fraud detection and insurance claim disputes.
-
-### 📄 License
+## License
 MIT
