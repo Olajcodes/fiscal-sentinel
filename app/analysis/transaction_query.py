@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
+from collections import Counter
+import os
 import re
 
 from app.analysis.transaction_analyzer import analyze_transactions_rule_based
@@ -262,9 +264,49 @@ def _coerce_amount(value: Any) -> float:
         return 0.0
 
 
-def _format_amount(amount: float) -> str:
+def _format_amount(amount: float, symbol: str) -> str:
     sign = "-" if amount < 0 else ""
-    return f"{sign}${abs(amount):,.2f}"
+    return f"{sign}{symbol}{abs(amount):,.2f}"
+
+
+def _symbol_from_code(code: str) -> str:
+    mapping = {
+        "NGN": "₦",
+        "USD": "$",
+        "EUR": "€",
+        "GBP": "£",
+    }
+    return mapping.get(code.upper(), "")
+
+
+def _resolve_currency_symbol(transactions: List[Dict[str, Any]]) -> str:
+    symbols = []
+    codes = []
+    for tx in transactions:
+        symbol = str(tx.get("currency_symbol") or "").strip()
+        code = str(tx.get("currency") or "").strip()
+        if symbol:
+            symbols.append(symbol)
+        if code:
+            codes.append(code)
+
+    if symbols:
+        return Counter(symbols).most_common(1)[0][0]
+    if codes:
+        code = Counter(codes).most_common(1)[0][0]
+        symbol = _symbol_from_code(code)
+        if symbol:
+            return symbol
+
+    env_symbol = os.environ.get("DEFAULT_CURRENCY_SYMBOL", "").strip()
+    if env_symbol:
+        return env_symbol
+    env_code = os.environ.get("DEFAULT_CURRENCY", "").strip()
+    if env_code:
+        symbol = _symbol_from_code(env_code)
+        if symbol:
+            return symbol
+    return "$"
 
 
 def _filter_transactions(query: TransactionQuery, transactions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -304,7 +346,7 @@ def _filter_transactions(query: TransactionQuery, transactions: List[Dict[str, A
     return filtered
 
 
-def _format_tx(tx: Dict[str, Any], amount: float) -> List[str]:
+def _format_tx(tx: Dict[str, Any], amount: float, symbol: str) -> List[str]:
     category = tx.get("category") or []
     if isinstance(category, list):
         category_text = ", ".join([str(c) for c in category if str(c).strip()])
@@ -315,7 +357,7 @@ def _format_tx(tx: Dict[str, Any], amount: float) -> List[str]:
     lines = [
         f"- Date: {tx.get('date', '')}",
         f"- Merchant: {tx.get('merchant_name', '')}",
-        f"- Amount: {_format_amount(amount)} ({direction})",
+        f"- Amount: {_format_amount(amount, symbol)} ({direction})",
     ]
     if category_text:
         lines.append(f"- Category: {category_text}")
@@ -335,18 +377,19 @@ def answer_transaction_query(query: TransactionQuery, transactions: List[Dict[st
     filtered = _filter_transactions(query, transactions)
     if not filtered:
         return "I could not find any transactions that match that request."
+    symbol = _resolve_currency_symbol(transactions)
 
     if query.query_type == "max":
         chosen = max(filtered, key=lambda tx: abs(_coerce_amount(tx.get("amount", 0.0))))
         amount = _coerce_amount(chosen.get("amount", 0.0))
         header = "Here is the highest transaction I found:"
-        return "\n".join([header] + _format_tx(chosen, amount))
+        return "\n".join([header] + _format_tx(chosen, amount, symbol))
 
     if query.query_type == "min":
         chosen = min(filtered, key=lambda tx: abs(_coerce_amount(tx.get("amount", 0.0))))
         amount = _coerce_amount(chosen.get("amount", 0.0))
         header = "Here is the lowest transaction I found:"
-        return "\n".join([header] + _format_tx(chosen, amount))
+        return "\n".join([header] + _format_tx(chosen, amount, symbol))
 
     if query.query_type == "count":
         return f"I found {len(filtered)} transactions that match that request."
@@ -354,19 +397,19 @@ def answer_transaction_query(query: TransactionQuery, transactions: List[Dict[st
     if query.query_type == "total":
         if query.direction == "debit":
             total = sum(_coerce_amount(tx.get("amount", 0.0)) for tx in filtered if _coerce_amount(tx.get("amount", 0.0)) > 0)
-            return f"Total debits: {_format_amount(total)} across {len(filtered)} transactions."
+            return f"Total debits: {_format_amount(total, symbol)} across {len(filtered)} transactions."
         if query.direction == "credit":
             total = sum(abs(_coerce_amount(tx.get("amount", 0.0))) for tx in filtered if _coerce_amount(tx.get("amount", 0.0)) < 0)
-            return f"Total credits: {_format_amount(total)} across {len(filtered)} transactions."
+            return f"Total credits: {_format_amount(total, symbol)} across {len(filtered)} transactions."
 
         outflow = sum(_coerce_amount(tx.get("amount", 0.0)) for tx in filtered if _coerce_amount(tx.get("amount", 0.0)) > 0)
         inflow = sum(abs(_coerce_amount(tx.get("amount", 0.0))) for tx in filtered if _coerce_amount(tx.get("amount", 0.0)) < 0)
         net = sum(_coerce_amount(tx.get("amount", 0.0)) for tx in filtered)
         return (
             f"Totals for the selected transactions:\n"
-            f"- Outflow: {_format_amount(outflow)}\n"
-            f"- Inflow: {_format_amount(inflow)}\n"
-            f"- Net: {_format_amount(net)}"
+            f"- Outflow: {_format_amount(outflow, symbol)}\n"
+            f"- Inflow: {_format_amount(inflow, symbol)}\n"
+            f"- Net: {_format_amount(net, symbol)}"
         )
 
     if query.query_type == "by_merchant":
@@ -384,7 +427,7 @@ def answer_transaction_query(query: TransactionQuery, transactions: List[Dict[st
         top = sorted(totals.items(), key=lambda item: item[1], reverse=True)[:5]
         lines = ["Top merchants by spend:"]
         for merchant, total in top:
-            lines.append(f"- {merchant}: {_format_amount(total)}")
+            lines.append(f"- {merchant}: {_format_amount(total, symbol)}")
         return "\n".join(lines)
 
     if query.query_type == "by_category":
@@ -406,7 +449,7 @@ def answer_transaction_query(query: TransactionQuery, transactions: List[Dict[st
         top = sorted(totals.items(), key=lambda item: item[1], reverse=True)[:5]
         lines = ["Top categories by spend:"]
         for category, total in top:
-            lines.append(f"- {category}: {_format_amount(total)}")
+            lines.append(f"- {category}: {_format_amount(total, symbol)}")
         return "\n".join(lines)
 
     if query.query_type == "recent":
@@ -418,7 +461,7 @@ def answer_transaction_query(query: TransactionQuery, transactions: List[Dict[st
         lines = ["Most recent transactions:"]
         for tx in ordered:
             amount = _coerce_amount(tx.get("amount", 0.0))
-            lines.append(f"- {tx.get('date', '')} | {tx.get('merchant_name', '')} | {_format_amount(amount)}")
+            lines.append(f"- {tx.get('date', '')} | {tx.get('merchant_name', '')} | {_format_amount(amount, symbol)}")
         return "\n".join(lines)
 
     if query.query_type == "subscription_scan":
@@ -428,7 +471,7 @@ def answer_transaction_query(query: TransactionQuery, transactions: List[Dict[st
         lines = ["Subscription-related findings:"]
         for issue in issues[:5]:
             lines.append(
-                f"- {issue.get('merchant', '')}: {issue.get('issue', '')} ({_format_amount(issue.get('amount', 0.0))})"
+                f"- {issue.get('merchant', '')}: {issue.get('issue', '')} ({_format_amount(issue.get('amount', 0.0), symbol)})"
             )
         return "\n".join(lines)
 

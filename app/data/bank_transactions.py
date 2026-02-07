@@ -36,6 +36,45 @@ def _parse_amount(value: Any) -> float:
     return -amount if negative else amount
 
 
+def _symbol_from_code(code: str) -> str:
+    mapping = {
+        "NGN": "₦",
+        "USD": "$",
+        "EUR": "€",
+        "GBP": "£",
+    }
+    return mapping.get(code.upper(), "")
+
+
+def _detect_currency(record: Dict[str, Any]) -> tuple[str, str]:
+    for key in ["currency", "currency_code", "iso_currency_code", "iso_currency"]:
+        value = record.get(key)
+        if value:
+            code = str(value).strip().upper()
+            return code, _symbol_from_code(code)
+
+    for key in ["amount", "transaction_amount", "amt", "value", "debit", "credit"]:
+        raw = record.get(key)
+        if isinstance(raw, str):
+            upper = raw.upper()
+            if "₦" in raw or "NGN" in upper:
+                return "NGN", "₦"
+            if "$" in raw or "USD" in upper:
+                return "USD", "$"
+            if "€" in raw or "EUR" in upper:
+                return "EUR", "€"
+            if "£" in raw or "GBP" in upper:
+                return "GBP", "£"
+
+    default_code = os.environ.get("DEFAULT_CURRENCY", "").strip().upper()
+    default_symbol = os.environ.get("DEFAULT_CURRENCY_SYMBOL", "").strip()
+    if default_code:
+        return default_code, default_symbol or _symbol_from_code(default_code)
+    if default_symbol:
+        return "", default_symbol
+    return "", ""
+
+
 def _decode_text(content: bytes) -> str:
     if not content:
         return ""
@@ -126,6 +165,7 @@ def normalize_transactions(records: List[Dict[str, Any]]) -> List[Dict[str, Any]
         date = _parse_date(_first_value(rec, ["date", "transaction_date", "posted_date", "post_date"]))
         amount = _parse_amount(_first_value(rec, ["amount", "transaction_amount", "amt", "value", "debit", "credit"]))
         category = _normalize_category(_first_value(rec, ["category", "categories", "type"]))
+        currency_code, currency_symbol = _detect_currency(rec)
 
         normalized.append(
             {
@@ -135,6 +175,8 @@ def normalize_transactions(records: List[Dict[str, Any]]) -> List[Dict[str, Any]
                 "amount": amount,
                 "category": category,
                 "notes": str(notes or "").strip(),
+                "currency": currency_code or None,
+                "currency_symbol": currency_symbol or None,
             }
         )
     return normalized
