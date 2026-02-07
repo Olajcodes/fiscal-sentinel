@@ -4,3 +4,7 @@ a_venv\
 .vscode
 *__pycache__
 *venv
+app/data/bank_transactions.json
+app/data/documents/
+app/data/chroma_db_store/
+app/data/previews/

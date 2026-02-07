@@ -1,0 +1,11 @@
+﻿transaction_id,date,merchant,amount,category,notes
+ex_001,2025-12-03,Netflix,22.99,Subscription,Previous months were $19.99. No notice.
+ex_002,2025-12-05,Planet Fitness,29.99,Fitness,Attempted to cancel online; told to cancel in person.
+ex_003,2025-12-06,Spotify,10.99,Subscription,Free trial ended; no reminder received.
+ex_004,2025-12-07,Adobe,239.88,Subscription,Annual plan auto-renewed; expected monthly billing.
+ex_005,2025-12-08,Amazon Prime,14.99,Subscription,Two Prime charges appeared within 24 hours.
+ex_006,2025-12-08,Amazon Prime,14.99,Subscription,Second Prime charge within 24 hours.
+ex_007,2025-12-09,Chase Bank Fee,12.00,Fees,Monthly maintenance fee.
+ex_008,2025-12-10,Spotify,12.99,Subscription,Price increased from $9.99 without notice.
+ex_009,2025-12-11,Adobe,19.99,Subscription,Canceling within trial; refund promised but not received.
+ex_010,2025-12-12,Amazon Marketplace Fee,6.49,Fees,Unexpected service fee on digital purchase.

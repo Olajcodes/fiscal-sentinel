@@ -50,6 +50,13 @@ OPENAI_API_KEY=sk-...
 OPIK_API_KEY=...
 ```
 
+## Sample Upload Files
+Use these to test the upload flow and analyzer:
+- app/data/examples/transactions_sample.csv
+- app/data/examples/transactions_sample.json
+
+Upload via the UI sidebar or POST to `/transactions/upload`.
+
 ## RAG Data (Recommended Competition Set)
 You can download documents locally (recommended) and ingest them into ChromaDB.
 
@@ -88,6 +95,35 @@ streamlit run frontend/ui.py
 ```
 
 UI note: after analysis, a **Draft the letter** button appears to confirm intent before letter generation.
+
+## PDF Statement Uploads
+For bank statements in PDF, the upload parser uses `camelot` (text-based PDFs). If the statement is scanned (image-only),
+the system falls back to OCR using `pdf2image` + `pytesseract`.
+
+OCR prerequisites (system installs):
+- Poppler (for `pdf2image`)
+- Tesseract OCR (for `pytesseract`)
+
+If OCR is unavailable, export a CSV/JSON from your bank instead.
+
+## Transaction Upload Preview API
+For complex PDFs, use a preview step to confirm columns:
+
+1) Preview (returns suggested mapping + sample rows)
+```bash
+curl -F "file=@/path/to/statement.pdf" http://localhost:8000/transactions/preview
+```
+
+2) Confirm (send mapping from preview)
+```bash
+curl -X POST http://localhost:8000/transactions/confirm \
+  -H "Content-Type: application/json" \
+  -d '{"preview_id":"<id>","mapping":{"date":"date_time","money_out":"money_out","money_in":"money_in","merchant_name":"party","description":"description","category":"category"}}'
+```
+
+Preview response includes a `schema` object describing target fields (e.g., `date`, `money_in`, `merchant_name`) so
+frontends can build a generic column-mapper UI. OCR rows may include a `confidence` score (0.0–1.0) to flag low-quality parses.
+The preview response also returns `confidence_stats` (avg/min/max/count) for quick quality checks.
 
 ## Evaluation (Opik)
 Run the evaluation suite:

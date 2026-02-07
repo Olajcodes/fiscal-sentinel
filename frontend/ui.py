@@ -40,6 +40,22 @@ def send_message(user_text: str):
 # Sidebar: Transactions
 with st.sidebar:
     st.header("Bank Feed (Mock)")
+    uploaded = st.file_uploader("Upload bank CSV, JSON, or PDF", type=["csv", "json", "pdf"])
+    if uploaded and st.button("Upload Transactions"):
+        files = {
+            "file": (
+                uploaded.name,
+                uploaded.getvalue(),
+                uploaded.type or "application/octet-stream",
+            )
+        }
+        res = requests.post(f"{API_URL}/transactions/upload", files=files)
+        if res.ok:
+            st.success(f"Uploaded {res.json().get('count', 0)} transactions.")
+            st.session_state["tx"] = requests.get(f"{API_URL}/transactions").json()
+        else:
+            st.error(res.json().get("detail", "Upload failed."))
+
     if st.button("Connect Bank"):
         res = requests.get(f"{API_URL}/transactions")
         st.session_state['tx'] = res.json()

@@ -1,0 +1,68 @@
+﻿{
+  "transactions": [
+    {
+      "transaction_id": "exj_001",
+      "date": "2025-12-01",
+      "merchant_name": "Netflix",
+      "amount": 15.49,
+      "category": ["Subscription"],
+      "notes": "Account unused for 60 days; user wants to cancel."
+    },
+    {
+      "transaction_id": "exj_002",
+      "date": "2025-12-02",
+      "merchant_name": "Planet Fitness",
+      "amount": 29.99,
+      "category": ["Fitness"],
+      "notes": "Charged after cancellation request was submitted."
+    },
+    {
+      "transaction_id": "exj_003",
+      "date": "2025-12-03",
+      "merchant": "Adobe",
+      "amount": "$19.99",
+      "category": "Subscription",
+      "memo": "Refund promised but not received."
+    },
+    {
+      "transaction_id": "exj_004",
+      "date": "2025-12-03",
+      "merchant": "Amazon Prime",
+      "amount": 139.00,
+      "category": "Subscription",
+      "notes": "Annual renewal processed; user expected reminder."
+    },
+    {
+      "transaction_id": "exj_005",
+      "date": "2025-12-04",
+      "merchant": "Spotify",
+      "amount": 10.99,
+      "category": "Subscription",
+      "notes": "Free trial ended; no reminder email."
+    },
+    {
+      "transaction_id": "exj_006",
+      "date": "2025-12-05",
+      "merchant": "Amazon Prime",
+      "amount": 14.99,
+      "category": "Subscription",
+      "notes": "First charge of the day."
+    },
+    {
+      "transaction_id": "exj_007",
+      "date": "2025-12-05",
+      "merchant": "Amazon Prime",
+      "amount": 9.99,
+      "category": "Subscription",
+      "notes": "Second charge same day; possible split billing."
+    },
+    {
+      "transaction_id": "exj_008",
+      "date": "2025-12-06",
+      "merchant": "Chase Bank",
+      "amount": 25.00,
+      "category": "Fees",
+      "notes": "Chargeback fee posted."
+    }
+  ]
+}
