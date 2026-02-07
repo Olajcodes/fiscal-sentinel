@@ -24,6 +24,109 @@ def _text_contains(text: str, needles: List[str]) -> bool:
     return any(n in lower for n in needles)
 
 
+def _coerce_amount(value: Any) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _format_amount(amount: float) -> str:
+    sign = "-" if amount < 0 else ""
+    return f"{sign}${abs(amount):,.2f}"
+
+
+def _pick_extreme_transaction(
+    transactions: List[Dict[str, Any]],
+    prefer: str = "abs",
+) -> Optional[Dict[str, Any]]:
+    if not transactions:
+        return None
+
+    def amount_of(tx: Dict[str, Any]) -> float:
+        return _coerce_amount(tx.get("amount", 0.0))
+
+    candidates = []
+    for tx in transactions:
+        amount = amount_of(tx)
+        if prefer == "debit" and amount <= 0:
+            continue
+        if prefer == "credit" and amount >= 0:
+            continue
+        candidates.append((amount, tx))
+
+    if not candidates:
+        return None
+
+    if prefer == "credit":
+        return min(candidates, key=lambda item: item[0])[1]
+    if prefer == "debit":
+        return max(candidates, key=lambda item: item[0])[1]
+    return max(candidates, key=lambda item: abs(item[0]))[1]
+
+
+def answer_transaction_query(
+    user_input: str,
+    transactions: List[Dict[str, Any]],
+) -> Optional[str]:
+    if not user_input:
+        return None
+    text = user_input.lower()
+    extreme_words = ["highest", "largest", "biggest", "maximum", "max", "most expensive"]
+    lowest_words = ["lowest", "smallest", "minimum", "min", "least expensive"]
+    tx_words = [
+        "transaction",
+        "charge",
+        "debit",
+        "credit",
+        "payment",
+        "purchase",
+        "withdrawal",
+        "deposit",
+        "transfer",
+    ]
+
+    wants_high = any(word in text for word in extreme_words) and any(word in text for word in tx_words)
+    wants_low = any(word in text for word in lowest_words) and any(word in text for word in tx_words)
+    if not (wants_high or wants_low):
+        return None
+
+    prefer = "abs"
+    if any(word in text for word in ["debit", "charge", "spent", "purchase", "payment", "withdrawal", "money out", "outflow"]):
+        prefer = "debit"
+    elif any(word in text for word in ["credit", "deposit", "refund", "income", "money in", "inflow"]):
+        prefer = "credit"
+
+    tx = _pick_extreme_transaction(transactions, prefer=prefer)
+    if not tx:
+        return "I could not find any transactions to evaluate."
+
+    amount = _coerce_amount(tx.get("amount", 0.0))
+    direction = "credit" if amount < 0 else "debit"
+    amount_text = _format_amount(amount)
+    category = tx.get("category") or []
+    if isinstance(category, list):
+        category_text = ", ".join([str(c) for c in category if str(c).strip()])
+    else:
+        category_text = str(category)
+
+    lines = [
+        "Here is the highest transaction I found:" if wants_high else "Here is the lowest transaction I found:",
+        f"- Date: {tx.get('date', '')}",
+        f"- Merchant: {tx.get('merchant_name', '')}",
+        f"- Amount: {amount_text} ({direction})",
+    ]
+    if category_text:
+        lines.append(f"- Category: {category_text}")
+    notes = (tx.get("notes") or "").strip()
+    if notes:
+        lines.append(f"- Notes: {notes}")
+    tx_id = tx.get("transaction_id")
+    if tx_id:
+        lines.append(f"- Transaction ID: {tx_id}")
+    return "\n".join(lines)
+
+
 def analyze_transactions_rule_based(transactions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     issues: List[Dict[str, Any]] = []
     by_merchant: Dict[str, List[Dict[str, Any]]] = defaultdict(list)

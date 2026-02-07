@@ -6,6 +6,7 @@ import json
 import uuid
 import tempfile
 import re
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -33,6 +34,15 @@ def _parse_amount(value: Any) -> float:
     except ValueError:
         amount = 0.0
     return -amount if negative else amount
+
+
+def _decode_text(content: bytes) -> str:
+    if not content:
+        return ""
+    try:
+        return content.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return content.decode("utf-8", errors="ignore")
 
 
 def _parse_date(value: Any) -> str:
@@ -259,21 +269,77 @@ def _ocr_pdf_to_text(content: bytes) -> str:
     try:
         from pdf2image import convert_from_bytes
         import pytesseract
+        from PIL import Image
     except ImportError as exc:  # pragma: no cover - dependency optional at runtime
         raise ValueError(
             "OCR requires pdf2image + pytesseract. Install them or upload a CSV/JSON export instead."
         ) from exc
 
+    def find_poppler_path() -> Optional[str]:
+        env_path = os.environ.get("POPPLER_PATH") or os.environ.get("POPPLER_BIN")
+        if env_path and Path(env_path).exists():
+            return str(Path(env_path))
+        choco_bin = Path(r"C:\ProgramData\chocolatey\bin\pdftoppm.exe")
+        if choco_bin.exists():
+            return str(choco_bin.parent)
+        base = Path(r"C:\ProgramData\chocolatey\lib\poppler\tools")
+        if base.exists():
+            for candidate in base.glob("poppler-*/Library/bin"):
+                if (candidate / "pdftoppm.exe").exists():
+                    return str(candidate)
+        return None
+
+    def find_tesseract_cmd() -> Optional[str]:
+        env_cmd = os.environ.get("TESSERACT_CMD") or os.environ.get("TESSERACT_PATH")
+        if env_cmd and Path(env_cmd).exists():
+            return str(Path(env_cmd))
+        candidates = [
+            Path(r"C:\Program Files\Tesseract-OCR\tesseract.exe"),
+            Path(r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe"),
+            Path(r"C:\ProgramData\chocolatey\bin\tesseract.exe"),
+        ]
+        for candidate in candidates:
+            if candidate.exists():
+                return str(candidate)
+        return None
+
+    poppler_path = find_poppler_path()
+    tesseract_cmd = find_tesseract_cmd()
+    if tesseract_cmd:
+        pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
+
     try:
-        pages = convert_from_bytes(content, dpi=200)
+        pages = convert_from_bytes(
+            content,
+            dpi=200,
+            poppler_path=poppler_path,
+        ) if poppler_path else convert_from_bytes(content, dpi=200)
         texts = []
         for page in pages:
             texts.append(pytesseract.image_to_string(page))
         return "\n".join(texts)
-    except Exception as exc:
-        raise ValueError(
-            "OCR failed. Ensure Poppler and Tesseract are installed and on PATH."
-        ) from exc
+    except Exception:
+        # Fallback to PyMuPDF rendering when Poppler is unavailable.
+        try:
+            import fitz  # PyMuPDF
+        except ImportError as exc:
+            raise ValueError(
+                "OCR failed. Install Poppler (for pdf2image) or PyMuPDF, and ensure Tesseract is available. "
+                "Optionally set POPPLER_PATH or TESSERACT_CMD."
+            ) from exc
+
+        try:
+            doc = fitz.open(stream=content, filetype="pdf")
+            texts = []
+            for page in doc:
+                pix = page.get_pixmap(dpi=200)
+                img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                texts.append(pytesseract.image_to_string(img))
+            return "\n".join(texts)
+        except Exception as exc:
+            raise ValueError(
+                "OCR failed using both Poppler and PyMuPDF. Ensure Tesseract is installed and accessible."
+            ) from exc
 
 
 def _parse_ocr_rows(text: str) -> List[Dict[str, str]]:
@@ -553,6 +619,12 @@ def normalize_rows_with_mapping(rows: List[Dict[str, Any]], mapping: Dict[str, s
                 return ""
             return str(row_lower.get(key, "")).strip()
 
+        def raw_value(field: str) -> Any:
+            key = mapping_lower.get(field)
+            if not key:
+                return ""
+            return row_lower.get(key, "")
+
         date_raw = value_of("date") or value_of("date_time")
         time_raw = value_of("time")
         date_text = f"{date_raw} {time_raw}".strip() if date_raw or time_raw else ""
@@ -572,7 +644,8 @@ def normalize_rows_with_mapping(rows: List[Dict[str, Any]], mapping: Dict[str, s
         merchant = value_of("merchant_name") or value_of("party") or value_of("payee")
         description = value_of("description")
         notes = value_of("notes") or description
-        category = _normalize_category(value_of("category"))
+        category_raw = raw_value("category")
+        category = _normalize_category(category_raw)
 
         transactions.append(
             {
@@ -590,7 +663,7 @@ def normalize_rows_with_mapping(rows: List[Dict[str, Any]], mapping: Dict[str, s
 
 def extract_rows_from_upload(filename: str, content: bytes) -> Dict[str, Any]:
     suffix = Path(filename or "").suffix.lower()
-    text = content.decode("utf-8", errors="ignore")
+    text = _decode_text(content)
 
     if content[:5] == b"%PDF-" or suffix == ".pdf":
         result = extract_pdf_rows(content)
@@ -671,7 +744,7 @@ def parse_transactions_from_pdf(content: bytes) -> List[Dict[str, Any]]:
 
 def parse_transactions_from_upload(filename: str, content: bytes) -> List[Dict[str, Any]]:
     suffix = Path(filename or "").suffix.lower()
-    text = content.decode("utf-8", errors="ignore")
+    text = _decode_text(content)
 
     if content[:5] == b"%PDF-":
         return parse_transactions_from_pdf(content)

@@ -1,7 +1,7 @@
 # This is the Entry point (FastAPI app)
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 from app.agent.core import run_sentinel
 from app.data.bank_transactions import (
     extract_rows_from_upload,
@@ -38,12 +38,13 @@ class PreviewSchema(BaseModel):
 
 
 class PreviewResponse(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
     preview_id: str
     columns: list[str]
     sample_rows: list[dict]
     suggested_mapping: dict
     source: str
-    schema: PreviewSchema
+    preview_schema: PreviewSchema = Field(alias="schema")
     confidence_stats: dict
 
 @app.get("/transactions")
@@ -74,6 +75,10 @@ async def preview_transactions(file: UploadFile = File(...)):
         "suggested_mapping": preview.get("suggested_mapping", {}),
         "source": preview.get("source", "unknown"),
         "schema": preview.get("schema", {}),
+        "confidence_stats": preview.get(
+            "confidence_stats",
+            {"avg": 0.0, "min": 0.0, "max": 0.0, "count": 0},
+        ),
     }
 
 @app.post("/transactions/confirm")
@@ -115,9 +120,12 @@ async def upload_transactions(file: UploadFile = File(...)):
 
 @app.post("/analyze")
 def analyze(req: Request):
-    tx = load_transactions() or get_mock_transactions()
-    res = run_sentinel(req.query, tx, history=req.history)
-    return {"response": res}
+    try:
+        tx = load_transactions() or get_mock_transactions()
+        res = run_sentinel(req.query, tx, history=req.history)
+        return {"response": res}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

@@ -24,11 +24,33 @@ def send_message(user_text: str):
         st.write(user_text)
 
     with st.spinner("Analyzing..."):
-        res = requests.post(
-            f"{API_URL}/analyze",
-            json={"query": user_text, "history": history},
-        )
-        reply = res.json()["response"]
+        try:
+            res = requests.post(
+                f"{API_URL}/analyze",
+                json={"query": user_text, "history": history},
+            )
+        except requests.RequestException as exc:
+            st.error(f"Backend request failed: {exc}")
+            return
+
+        if not res.ok:
+            detail = ""
+            try:
+                detail = res.json().get("detail", "")
+            except ValueError:
+                detail = (res.text or "").strip()
+            st.error(f"Backend error ({res.status_code}). {detail}")
+            return
+
+        try:
+            payload = res.json()
+        except ValueError:
+            st.error(f"Backend returned non-JSON response (status {res.status_code}).")
+            return
+        reply = payload.get("response", "")
+        if not reply:
+            st.error("Backend response was missing the 'response' field.")
+            return
 
     st.session_state.msgs.append({"role": "user", "content": user_text})
     st.session_state.msgs.append({"role": "assistant", "content": reply})

@@ -13,6 +13,7 @@ from app.agent.prompts import (
     FISCAL_SENTINEL_LETTER_PROMPT,
     FISCAL_SENTINEL_ROUTER_PROMPT,
 )
+from app.analysis.transaction_analyzer import analyze_transactions_rule_based, answer_transaction_query
 from app.data.vector_db import LegalKnowledgeBase
 
 
@@ -115,6 +116,7 @@ def _wants_analysis(text: str) -> bool:
         "look over",
         "subscriptions",
         "transactions",
+        "transaction",
         "charges",
         "fees",
         "bank feed",
@@ -225,6 +227,16 @@ def build_graph(client: OpenAI, kb: Optional[LegalKnowledgeBase] = None):
     def analyze_transactions(state: AgentState) -> AgentState:
         user_input = state.get("user_input", "")
         tx = state.get("transactions", [])
+        quick_response = answer_transaction_query(user_input, tx)
+        if quick_response:
+            return {"final_response": quick_response}
+        rule_based_issues = analyze_transactions_rule_based(tx)
+        if rule_based_issues:
+            needs_evidence = bool(state.get("wants_retrieval") or state.get("wants_letter"))
+            return {
+                "analysis": {"issues": rule_based_issues},
+                "needs_evidence": needs_evidence,
+            }
         messages = [
             {"role": "system", "content": FISCAL_SENTINEL_ANALYSIS_PROMPT},
             {
@@ -339,6 +351,8 @@ def build_graph(client: OpenAI, kb: Optional[LegalKnowledgeBase] = None):
         return "assistant"
 
     def route_after_analysis(state: AgentState) -> str:
+        if state.get("final_response"):
+            return END
         wants_letter = state.get("wants_letter", False)
         wants_retrieval = state.get("wants_retrieval", False)
         issues = (state.get("analysis") or {}).get("issues") or []

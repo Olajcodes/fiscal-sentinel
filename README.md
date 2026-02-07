@@ -104,7 +104,9 @@ OCR prerequisites (system installs):
 - Poppler (for `pdf2image`)
 - Tesseract OCR (for `pytesseract`)
 
-If OCR is unavailable, export a CSV/JSON from your bank instead.
+If Poppler is unavailable, OCR falls back to PyMuPDF rendering. You can also set
+`POPPLER_PATH` and/or `TESSERACT_CMD` to point to the installed binaries. If OCR
+still fails, export a CSV/JSON from your bank instead.
 
 ## Transaction Upload Preview API
 For complex PDFs, use a preview step to confirm columns:
