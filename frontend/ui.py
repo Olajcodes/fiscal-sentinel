@@ -3,8 +3,32 @@ import requests
 
 API_URL = "http://localhost:8000"
 st.set_page_config(page_title="Fiscal Sentinel", page_icon="FS", layout="wide")
-st.title("Fiscal Sentinel")
-st.caption("Analyze transactions, spot issues, and draft dispute letters.")
+
+LOGO_SVG = """
+<svg width="44" height="44" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Fiscal Sentinel Logo">
+  <defs>
+    <linearGradient id="shield" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1F3B5B"/>
+      <stop offset="100%" stop-color="#0B6AA2"/>
+    </linearGradient>
+  </defs>
+  <path d="M32 4L54 10V30C54 45 44 57 32 60C20 57 10 45 10 30V10L32 4Z" fill="url(#shield)"/>
+  <path d="M22 30L30 38L44 22" stroke="white" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+""".strip()
+
+st.markdown(
+    f"""
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:0.25rem;">
+      {LOGO_SVG}
+      <div>
+        <div style="font-size:2rem; font-weight:700; line-height:1.1;">Fiscal Sentinel</div>
+        <div style="color:#6b7280; margin-top:4px;">Analyze transactions, spot issues, and draft dispute letters.</div>
+      </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
 
 def looks_like_letter(text: str) -> bool:
