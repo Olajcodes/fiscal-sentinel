@@ -2,8 +2,10 @@ import streamlit as st
 import requests
 
 API_URL = "http://localhost:8000"
-st.set_page_config(page_title="Fiscal Sentinel", page_icon="🛡️", layout="wide")
-st.title("🛡️ Fiscal Sentinel")
+st.set_page_config(page_title="Fiscal Sentinel", page_icon="FS", layout="wide")
+st.title("Fiscal Sentinel")
+st.caption("Analyze transactions, spot issues, and draft dispute letters.")
+
 
 def looks_like_letter(text: str) -> bool:
     t = text.lower()
@@ -18,36 +20,71 @@ def should_offer_letter(text: str) -> bool:
     return ("draft" in t and "letter" in t) and (not looks_like_letter(text))
 
 
+def _extract_error(res: requests.Response) -> str:
+    try:
+        detail = res.json().get("detail", "")
+    except ValueError:
+        detail = (res.text or "").strip()
+    return f"Backend error ({res.status_code}). {detail}"
+
+
+def _api_get(path: str):
+    try:
+        res = requests.get(f"{API_URL}{path}")
+    except requests.RequestException as exc:
+        return None, f"Backend request failed: {exc}"
+    if not res.ok:
+        return None, _extract_error(res)
+    try:
+        return res.json(), ""
+    except ValueError:
+        return None, "Backend returned non-JSON response."
+
+
+def _api_post_json(path: str, payload: dict):
+    try:
+        res = requests.post(f"{API_URL}{path}", json=payload)
+    except requests.RequestException as exc:
+        return None, f"Backend request failed: {exc}"
+    if not res.ok:
+        return None, _extract_error(res)
+    try:
+        return res.json(), ""
+    except ValueError:
+        return None, "Backend returned non-JSON response."
+
+
+def _api_post_file(path: str, uploaded_file):
+    files = {
+        "file": (
+            uploaded_file.name,
+            uploaded_file.getvalue(),
+            uploaded_file.type or "application/octet-stream",
+        )
+    }
+    try:
+        res = requests.post(f"{API_URL}{path}", files=files)
+    except requests.RequestException as exc:
+        return None, f"Backend request failed: {exc}"
+    if not res.ok:
+        return None, _extract_error(res)
+    try:
+        return res.json(), ""
+    except ValueError:
+        return None, "Backend returned non-JSON response."
+
+
 def send_message(user_text: str):
     history = st.session_state.msgs[:]
     with st.chat_message("user"):
         st.write(user_text)
 
     with st.spinner("Analyzing..."):
-        try:
-            res = requests.post(
-                f"{API_URL}/analyze",
-                json={"query": user_text, "history": history},
-            )
-        except requests.RequestException as exc:
-            st.error(f"Backend request failed: {exc}")
+        payload, error = _api_post_json("/analyze", {"query": user_text, "history": history})
+        if error:
+            st.error(error)
             return
-
-        if not res.ok:
-            detail = ""
-            try:
-                detail = res.json().get("detail", "")
-            except ValueError:
-                detail = (res.text or "").strip()
-            st.error(f"Backend error ({res.status_code}). {detail}")
-            return
-
-        try:
-            payload = res.json()
-        except ValueError:
-            st.error(f"Backend returned non-JSON response (status {res.status_code}).")
-            return
-        reply = payload.get("response", "")
+        reply = (payload or {}).get("response", "")
         if not reply:
             st.error("Backend response was missing the 'response' field.")
             return
@@ -59,45 +96,158 @@ def send_message(user_text: str):
     with st.chat_message("assistant"):
         st.write(reply)
 
-# Sidebar: Transactions
-with st.sidebar:
-    st.header("Bank Feed (Mock)")
-    uploaded = st.file_uploader("Upload bank CSV, JSON, or PDF", type=["csv", "json", "pdf"])
-    if uploaded and st.button("Upload Transactions"):
-        files = {
-            "file": (
-                uploaded.name,
-                uploaded.getvalue(),
-                uploaded.type or "application/octet-stream",
-            )
-        }
-        res = requests.post(f"{API_URL}/transactions/upload", files=files)
-        if res.ok:
-            st.success(f"Uploaded {res.json().get('count', 0)} transactions.")
-            st.session_state["tx"] = requests.get(f"{API_URL}/transactions").json()
-        else:
-            st.error(res.json().get("detail", "Upload failed."))
 
-    if st.button("Connect Bank"):
-        res = requests.get(f"{API_URL}/transactions")
-        st.session_state['tx'] = res.json()
-    
-    if 'tx' in st.session_state:
-        for t in st.session_state['tx']:
-            st.warning(f"{t['merchant_name']} - ${t['amount']}")
+def _build_mapping_ui(columns: list[str], suggested: dict, schema: dict) -> dict:
+    target_fields = schema.get("target_fields", [])
+    mapping: dict[str, str] = {}
+    options = [""] + columns
+    for field in target_fields:
+        name = field.get("name", "")
+        if not name:
+            continue
+        label = f"{name}"
+        if field.get("required"):
+            label += " (required)"
+        default = suggested.get(name, "")
+        index = options.index(default) if default in options else 0
+        selected = st.selectbox(label, options, index=index, key=f"map_{name}")
+        if selected:
+            mapping[name] = selected
+    return mapping
 
-# Main: Chat
-if "msgs" not in st.session_state: st.session_state.msgs = []
-if "offer_letter" not in st.session_state: st.session_state.offer_letter = False
 
-for m in st.session_state.msgs:
-    with st.chat_message(m["role"]): st.write(m["content"])
-
-if prompt := st.chat_input("Scan for threats..."):
+if "msgs" not in st.session_state:
+    st.session_state.msgs = []
+if "offer_letter" not in st.session_state:
     st.session_state.offer_letter = False
-    send_message(prompt)
+if "tx" not in st.session_state:
+    st.session_state.tx = []
+if "preview" not in st.session_state:
+    st.session_state.preview = None
 
-if st.session_state.offer_letter:
-    if st.button("Draft the letter"):
+tab_tx, tab_chat = st.tabs(["Transactions", "Assistant"])
+
+with tab_tx:
+    col_left, col_right = st.columns([1.1, 1.4])
+
+    with col_left:
+        st.subheader("Upload & Preview")
+        uploaded = st.file_uploader("Upload CSV, JSON, or PDF", type=["csv", "json", "pdf"])
+
+        action_cols = st.columns(2)
+        with action_cols[0]:
+            if uploaded and st.button("Preview & Map"):
+                preview_payload, error = _api_post_file("/transactions/preview", uploaded)
+                if error:
+                    st.error(error)
+                else:
+                    st.session_state.preview = preview_payload
+                    st.success("Preview generated. Map the columns below and confirm.")
+
+        with action_cols[1]:
+            if uploaded and st.button("Upload Directly"):
+                upload_payload, error = _api_post_file("/transactions/upload", uploaded)
+                if error:
+                    st.error(error)
+                else:
+                    count = upload_payload.get("count", 0)
+                    st.success(f"Uploaded {count} transactions.")
+                    tx_payload, error = _api_get("/transactions")
+                    if error:
+                        st.error(error)
+                    else:
+                        st.session_state.tx = tx_payload or []
+
+        preview = st.session_state.preview
+        if preview:
+            st.divider()
+            st.subheader("Preview Summary")
+            st.write(f"Source: {preview.get('source', 'unknown')}")
+            stats = preview.get("confidence_stats", {})
+            if stats:
+                st.write(
+                    f"Confidence avg: {stats.get('avg', 0.0)} | min: {stats.get('min', 0.0)} "
+                    f"| max: {stats.get('max', 0.0)} | rows: {stats.get('count', 0)}"
+                )
+
+            sample_rows = preview.get("sample_rows", [])
+            if sample_rows:
+                st.dataframe(sample_rows, use_container_width=True, height=240)
+
+            st.subheader("Confirm Column Mapping")
+            columns = preview.get("columns", [])
+            suggested = preview.get("suggested_mapping", {})
+            schema = preview.get("schema", {})
+            mapping = _build_mapping_ui(columns, suggested, schema)
+
+            confirm_cols = st.columns(2)
+            with confirm_cols[0]:
+                if st.button("Confirm & Import"):
+                    preview_id = preview.get("preview_id")
+                    if not preview_id:
+                        st.error("Missing preview_id from server.")
+                    else:
+                        confirm_payload, error = _api_post_json(
+                            "/transactions/confirm",
+                            {"preview_id": preview_id, "mapping": mapping},
+                        )
+                        if error:
+                            st.error(error)
+                        else:
+                            count = confirm_payload.get("count", 0)
+                            st.success(f"Imported {count} transactions.")
+                            st.session_state.preview = None
+                            tx_payload, error = _api_get("/transactions")
+                            if error:
+                                st.error(error)
+                            else:
+                                st.session_state.tx = tx_payload or []
+
+            with confirm_cols[1]:
+                if st.button("Clear Preview"):
+                    st.session_state.preview = None
+
+    with col_right:
+        st.subheader("Current Transactions")
+        st.caption("Loaded transactions are used for analysis and letter drafting.")
+
+        load_cols = st.columns(2)
+        with load_cols[0]:
+            if st.button("Load Current"):
+                tx_payload, error = _api_get("/transactions")
+                if error:
+                    st.error(error)
+                else:
+                    st.session_state.tx = tx_payload or []
+
+        with load_cols[1]:
+            if st.button("Connect Bank (Mock)"):
+                tx_payload, error = _api_get("/transactions")
+                if error:
+                    st.error(error)
+                else:
+                    st.session_state.tx = tx_payload or []
+
+        tx = st.session_state.tx or []
+        if tx:
+            st.write(f"Transactions loaded: {len(tx)}")
+            st.dataframe(tx[:25], use_container_width=True, height=420)
+        else:
+            st.info("No transactions loaded yet. Upload a file or connect the mock bank feed.")
+
+with tab_chat:
+    st.subheader("Ask Fiscal Sentinel")
+    st.caption('Example: "What is the highest transaction in my account?"')
+
+    for m in st.session_state.msgs:
+        with st.chat_message(m["role"]):
+            st.write(m["content"])
+
+    if prompt := st.chat_input("Ask about your transactions..."):
         st.session_state.offer_letter = False
-        send_message("Yes, please draft the letter.")
+        send_message(prompt)
+
+    if st.session_state.offer_letter:
+        if st.button("Draft the letter"):
+            st.session_state.offer_letter = False
+            send_message("Yes, please draft the letter.")
