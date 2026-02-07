@@ -28,6 +28,7 @@ def run_sentinel(
     user_input: str,
     transactions: List[Dict[str, Any]],
     history: Optional[List[Dict[str, str]]] = None,
+    debug: bool = False,
 ):
     messages = history[:] if history else []
     messages.append({"role": "user", "content": user_input})
@@ -38,4 +39,18 @@ def run_sentinel(
         "transactions": transactions,
     }
     result = run_graph(_graph_app, state)
-    return result.get("final_response", "")
+    response = result.get("final_response", "")
+    if not debug:
+        return response
+
+    query = result.get("transaction_query")
+    debug_payload = {
+        "intent": result.get("intent"),
+        "wants_retrieval": result.get("wants_retrieval"),
+        "wants_letter": result.get("wants_letter"),
+        "needs_evidence": result.get("needs_evidence"),
+        "transaction_query_type": getattr(query, "query_type", None),
+        "needs_followup": getattr(query, "needs_followup", None),
+        "retrieval_used": bool(result.get("retrieval_context")),
+    }
+    return response, debug_payload

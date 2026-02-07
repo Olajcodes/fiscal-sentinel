@@ -19,6 +19,7 @@ app = FastAPI()
 class Request(BaseModel):
     query: str
     history: list | None = None
+    debug: bool | None = False
 
 
 class PreviewConfirmRequest(BaseModel):
@@ -122,6 +123,9 @@ async def upload_transactions(file: UploadFile = File(...)):
 def analyze(req: Request):
     try:
         tx = load_transactions() or get_mock_transactions()
+        if req.debug:
+            response, debug_payload = run_sentinel(req.query, tx, history=req.history, debug=True)
+            return {"response": response, "debug": debug_payload}
         res = run_sentinel(req.query, tx, history=req.history)
         return {"response": res}
     except Exception as exc:

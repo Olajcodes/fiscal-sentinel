@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional, TypedDict
 from langgraph.graph import END, StateGraph
 from openai import OpenAI
 from opik import track
+from opik.opik_context import update_current_span
 
 from app.agent.prompts import (
     FISCAL_SENTINEL_ANALYSIS_PROMPT,
@@ -13,7 +14,8 @@ from app.agent.prompts import (
     FISCAL_SENTINEL_LETTER_PROMPT,
     FISCAL_SENTINEL_ROUTER_PROMPT,
 )
-from app.analysis.transaction_analyzer import analyze_transactions_rule_based, answer_transaction_query
+from app.analysis.transaction_analyzer import analyze_transactions_rule_based
+from app.analysis.transaction_query import answer_transaction_query, parse_transaction_query, TransactionQuery
 from app.data.vector_db import LegalKnowledgeBase
 
 
@@ -24,6 +26,8 @@ class AgentState(TypedDict, total=False):
     intent: str
     wants_letter: bool
     wants_retrieval: bool
+    transaction_query: TransactionQuery
+    transaction_answer: str
     analysis: Dict[str, Any]
     needs_evidence: bool
     retrieval_context: str
@@ -37,6 +41,13 @@ def _safe_json_loads(text: str) -> Dict[str, Any]:
         return json.loads(text)
     except Exception:
         return {}
+
+
+def _safe_span_update(metadata: Dict[str, Any]) -> None:
+    try:
+        update_current_span(metadata=metadata)
+    except Exception:
+        return
 
 
 def _normalize_text(text: str) -> str:
@@ -90,8 +101,17 @@ def _assistant_asked_to_draft(messages: List[Dict[str, str]]) -> bool:
 
 
 def _wants_legal_help(text: str) -> bool:
-    triggers = [
+    normalized = _normalize_text(text)
+    phrases = [
         "is it legal",
+        "can i fight",
+        "fight it",
+        "fight this",
+    ]
+    if any(p in normalized for p in phrases):
+        return True
+    tokens = set(re.findall(r"[a-z]+", normalized))
+    keywords = {
         "legal",
         "law",
         "regulation",
@@ -99,12 +119,8 @@ def _wants_legal_help(text: str) -> bool:
         "rights",
         "statute",
         "rule",
-        "act",
-        "can i fight",
-        "fight it",
-        "fight this",
-    ]
-    return any(t in text for t in triggers)
+    }
+    return any(word in tokens for word in keywords)
 
 
 def _wants_analysis(text: str) -> bool:
@@ -186,14 +202,38 @@ def build_graph(client: OpenAI, kb: Optional[LegalKnowledgeBase] = None):
     def router(state: AgentState) -> AgentState:
         user_input = state.get("user_input", "")
         messages = state.get("messages", [])
+        tx = state.get("transactions", [])
         normalized = _normalize_text(user_input)
         wants_letter = _explicit_letter_request(normalized) or (
             _is_affirmative(normalized) and _assistant_asked_to_draft(messages)
         )
         wants_retrieval = _wants_legal_help(normalized) or wants_letter
 
+        transaction_query = parse_transaction_query(user_input, tx)
+        if transaction_query and not wants_letter and not _wants_legal_help(normalized):
+            _safe_span_update(
+                {
+                    "intent": "transaction_query",
+                    "wants_retrieval": False,
+                    "transaction_query_type": transaction_query.query_type,
+                    "needs_followup": transaction_query.needs_followup,
+                }
+            )
+            return {
+                "intent": "transaction_query",
+                "wants_letter": wants_letter,
+                "wants_retrieval": False,
+                "transaction_query": transaction_query,
+            }
+
         heuristic = _basic_intent_heuristic(user_input, messages)
         if heuristic:
+            _safe_span_update(
+                {
+                    "intent": heuristic,
+                    "wants_retrieval": wants_retrieval or heuristic == "retrieve_laws",
+                }
+            )
             return {
                 "intent": heuristic,
                 "wants_letter": wants_letter or heuristic == "draft_letter",
@@ -204,8 +244,18 @@ def build_graph(client: OpenAI, kb: Optional[LegalKnowledgeBase] = None):
         router_messages = [{"role": "system", "content": FISCAL_SENTINEL_ROUTER_PROMPT}] + history
         result = _openai_json_response(client, router_messages)
         intent = result.get("intent") or "other"
+        explicit_legal = _wants_legal_help(normalized)
         if intent == "draft_letter" and not wants_letter:
             intent = "general_question"
+        if intent == "retrieve_laws" and not explicit_legal and not wants_letter:
+            intent = "analyze_transactions" if _wants_analysis(normalized) else "general_question"
+        wants_retrieval = explicit_legal or wants_letter
+        _safe_span_update(
+            {
+                "intent": intent,
+                "wants_retrieval": wants_retrieval or intent == "retrieve_laws",
+            }
+        )
         return {
             "intent": intent,
             "wants_letter": wants_letter or intent == "draft_letter",
@@ -223,13 +273,26 @@ def build_graph(client: OpenAI, kb: Optional[LegalKnowledgeBase] = None):
         content = response.choices[0].message.content or ""
         return {"assistant_response": content}
 
+    @track(name="transaction_query")
+    def transaction_query_node(state: AgentState) -> AgentState:
+        query = state.get("transaction_query")
+        tx = state.get("transactions", [])
+        if not query:
+            return {"final_response": "Can you clarify what you want to know about your transactions?"}
+        response = answer_transaction_query(query, tx)
+        _safe_span_update(
+            {
+                "transaction_query_type": query.query_type,
+                "needs_followup": query.needs_followup,
+                "wants_retrieval": False,
+            }
+        )
+        return {"final_response": response}
+
     @track(name="analyze_transactions")
     def analyze_transactions(state: AgentState) -> AgentState:
         user_input = state.get("user_input", "")
         tx = state.get("transactions", [])
-        quick_response = answer_transaction_query(user_input, tx)
-        if quick_response:
-            return {"final_response": quick_response}
         rule_based_issues = analyze_transactions_rule_based(tx)
         if rule_based_issues:
             needs_evidence = bool(state.get("wants_retrieval") or state.get("wants_letter"))
@@ -265,6 +328,7 @@ def build_graph(client: OpenAI, kb: Optional[LegalKnowledgeBase] = None):
             merchant = _detect_merchant_from_text(user_input)
         query = f"{user_input}\n{issue_text}".strip()
         context = kb.search_laws(query, merchant=merchant) if query else ""
+        _safe_span_update({"retrieval_used": True, "merchant": merchant or ""})
         return {"retrieval_context": context}
 
     @track(name="draft_letter")
@@ -340,6 +404,8 @@ def build_graph(client: OpenAI, kb: Optional[LegalKnowledgeBase] = None):
 
     def route_after_router(state: AgentState) -> str:
         intent = state.get("intent", "other")
+        if intent == "transaction_query":
+            return "transaction_query"
         if intent in ["greeting", "general_question", "other"]:
             return "assistant"
         if intent == "analyze_transactions":
@@ -371,6 +437,7 @@ def build_graph(client: OpenAI, kb: Optional[LegalKnowledgeBase] = None):
 
     graph.add_node("router", router)
     graph.add_node("assistant", assistant)
+    graph.add_node("transaction_query", transaction_query_node)
     graph.add_node("analyze_transactions", analyze_transactions)
     graph.add_node("retrieve_laws", retrieve_laws)
     graph.add_node("draft_letter", draft_letter)

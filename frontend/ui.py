@@ -104,7 +104,10 @@ def send_message(user_text: str):
         st.write(user_text)
 
     with st.spinner("Analyzing..."):
-        payload, error = _api_post_json("/analyze", {"query": user_text, "history": history})
+        payload, error = _api_post_json(
+            "/analyze",
+            {"query": user_text, "history": history, "debug": st.session_state.debug_mode},
+        )
         if error:
             st.error(error)
             return
@@ -112,13 +115,20 @@ def send_message(user_text: str):
         if not reply:
             st.error("Backend response was missing the 'response' field.")
             return
+        debug_payload = (payload or {}).get("debug") if st.session_state.debug_mode else None
 
     st.session_state.msgs.append({"role": "user", "content": user_text})
-    st.session_state.msgs.append({"role": "assistant", "content": reply})
+    if debug_payload:
+        st.session_state.msgs.append({"role": "assistant", "content": reply, "debug": debug_payload})
+    else:
+        st.session_state.msgs.append({"role": "assistant", "content": reply})
     st.session_state.offer_letter = should_offer_letter(reply)
 
     with st.chat_message("assistant"):
         st.write(reply)
+        if debug_payload:
+            with st.expander("Routing debug"):
+                st.json(debug_payload)
 
 
 def _build_mapping_ui(columns: list[str], suggested: dict, schema: dict) -> dict:
@@ -148,6 +158,8 @@ if "tx" not in st.session_state:
     st.session_state.tx = []
 if "preview" not in st.session_state:
     st.session_state.preview = None
+if "debug_mode" not in st.session_state:
+    st.session_state.debug_mode = False
 
 tab_tx, tab_chat = st.tabs(["Transactions", "Assistant"])
 
@@ -262,10 +274,14 @@ with tab_tx:
 with tab_chat:
     st.subheader("Ask Fiscal Sentinel")
     st.caption('Example: "What is the highest transaction in my account?"')
+    st.checkbox("Show routing debug", key="debug_mode")
 
     for m in st.session_state.msgs:
         with st.chat_message(m["role"]):
             st.write(m["content"])
+            if m.get("debug"):
+                with st.expander("Routing debug"):
+                    st.json(m["debug"])
 
     if prompt := st.chat_input("Ask about your transactions..."):
         st.session_state.offer_letter = False

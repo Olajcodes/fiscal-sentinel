@@ -17,7 +17,7 @@ DB_PATH = os.path.join(os.path.dirname(__file__), "chroma_db_store")
 def _infer_metadata_from_filename(file_name: str):
     """
     Infer lightweight metadata from filenames so we can filter retrieval by merchant
-    for the competition dataset.
+    for the transaction dataset.
     """
     base = os.path.splitext(file_name)[0].lower()
     merchant = None

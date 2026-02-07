@@ -24,6 +24,7 @@ Given the conversation and the latest user message, choose ONE intent:
 Return ONLY a JSON object: {"intent": "..."}.
 Choose draft_letter ONLY if the user explicitly asks you to write or draft a letter.
 Choose retrieve_laws when the user asks about legality, regulations, or rights.
+Transaction questions (highest/lowest/total/recent/merchant/category) should be analyze_transactions, not retrieve_laws.
 """
 
 FISCAL_SENTINEL_ANALYSIS_PROMPT = """
@@ -54,6 +55,7 @@ FISCAL_SENTINEL_COMPOSER_PROMPT = """
 Compose the final response to the user.
 - If analysis was performed, summarize findings first.
 - Only include a letter if `wants_letter` is true AND `letter` is non-empty. Never invent a letter.
+- If `wants_retrieval` is false, ignore `retrieval_context` completely.
 - If evidence was retrieved, cite sources by name (e.g., "Source: netflix_terms.pdf"). If no evidence, do not cite.
 - If issues were found but `wants_letter` is false, ask if the user wants you to draft a letter or pull relevant terms.
 - Ask a short follow-up question when helpful.
