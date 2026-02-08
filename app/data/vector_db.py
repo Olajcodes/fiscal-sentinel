@@ -23,16 +23,27 @@ DB_PATH = os.path.join(os.path.dirname(__file__), "chroma_db_store")
 DEFAULT_COLLECTION = "consumer_laws"
 DEFAULT_EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 
-VECTOR_DB_PROVIDER = os.environ.get("VECTOR_DB_PROVIDER", "chroma").lower()
-EMBEDDING_PROVIDER = os.environ.get("EMBEDDING_PROVIDER", "local").lower()
-OPENAI_EMBEDDING_MODEL = os.environ.get("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
-OPENAI_EMBEDDING_DIM = int(os.environ.get("OPENAI_EMBEDDING_DIM", "1536"))
-QDRANT_URL = os.environ.get("QDRANT_URL")
-QDRANT_API_KEY = os.environ.get("QDRANT_API_KEY")
-QDRANT_COLLECTION = os.environ.get("QDRANT_COLLECTION", DEFAULT_COLLECTION)
-QDRANT_TIMEOUT_SECONDS = int(os.environ.get("QDRANT_TIMEOUT_SECONDS", "60"))
-EMBEDDING_BATCH_SIZE = int(os.environ.get("EMBEDDING_BATCH_SIZE", "32"))
-QDRANT_UPSERT_BATCH_SIZE = int(os.environ.get("QDRANT_UPSERT_BATCH_SIZE", "64"))
+def _read_env(name: str, default: Optional[str] = None) -> Optional[str]:
+    value = os.environ.get(name, default)
+    if isinstance(value, str):
+        value = value.strip()
+        if (value.startswith('"') and value.endswith('"')) or (
+            value.startswith("'") and value.endswith("'")
+        ):
+            value = value[1:-1].strip()
+    return value
+
+
+VECTOR_DB_PROVIDER = (_read_env("VECTOR_DB_PROVIDER", "chroma") or "chroma").lower()
+EMBEDDING_PROVIDER = (_read_env("EMBEDDING_PROVIDER", "local") or "local").lower()
+OPENAI_EMBEDDING_MODEL = _read_env("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small") or "text-embedding-3-small"
+OPENAI_EMBEDDING_DIM = int(_read_env("OPENAI_EMBEDDING_DIM", "1536") or "1536")
+QDRANT_URL = _read_env("QDRANT_URL")
+QDRANT_API_KEY = _read_env("QDRANT_API_KEY")
+QDRANT_COLLECTION = _read_env("QDRANT_COLLECTION", DEFAULT_COLLECTION) or DEFAULT_COLLECTION
+QDRANT_TIMEOUT_SECONDS = int(_read_env("QDRANT_TIMEOUT_SECONDS", "60") or "60")
+EMBEDDING_BATCH_SIZE = int(_read_env("EMBEDDING_BATCH_SIZE", "32") or "32")
+QDRANT_UPSERT_BATCH_SIZE = int(_read_env("QDRANT_UPSERT_BATCH_SIZE", "64") or "64")
 
 
 def _infer_metadata_from_filename(file_name: str):
@@ -151,11 +162,12 @@ class LegalKnowledgeBase:
             if not QDRANT_URL:
                 raise ValueError("QDRANT_URL is required when VECTOR_DB_PROVIDER=qdrant")
             if self.embedding_provider == "openai":
-                if not os.environ.get("OPENAI_API_KEY"):
+                api_key = _read_env("OPENAI_API_KEY")
+                if not api_key:
                     raise ValueError("OPENAI_API_KEY is required when EMBEDDING_PROVIDER=openai")
-                self.embedding_model = os.environ.get("OPENAI_EMBEDDING_MODEL", OPENAI_EMBEDDING_MODEL)
-                self.embedding_dim = int(os.environ.get("OPENAI_EMBEDDING_DIM", str(OPENAI_EMBEDDING_DIM)))
-                self.openai_client = OpenAI()
+                self.embedding_model = _read_env("OPENAI_EMBEDDING_MODEL", OPENAI_EMBEDDING_MODEL) or OPENAI_EMBEDDING_MODEL
+                self.embedding_dim = int(_read_env("OPENAI_EMBEDDING_DIM", str(OPENAI_EMBEDDING_DIM)) or str(OPENAI_EMBEDDING_DIM))
+                self.openai_client = OpenAI(api_key=api_key)
                 self.embedder = None
             else:
                 self.embedder = _load_sentence_transformer(self.embedding_model)
@@ -171,10 +183,10 @@ class LegalKnowledgeBase:
             chromadb, embedding_functions = _load_chromadb()
             self.client = chromadb.PersistentClient(path=DB_PATH)
             if self.embedding_provider == "openai":
-                api_key = os.environ.get("OPENAI_API_KEY")
+                api_key = _read_env("OPENAI_API_KEY")
                 if not api_key:
                     raise ValueError("OPENAI_API_KEY is required when EMBEDDING_PROVIDER=openai")
-                self.embedding_model = os.environ.get("OPENAI_EMBEDDING_MODEL", OPENAI_EMBEDDING_MODEL)
+                self.embedding_model = _read_env("OPENAI_EMBEDDING_MODEL", OPENAI_EMBEDDING_MODEL) or OPENAI_EMBEDDING_MODEL
                 if not hasattr(embedding_functions, "OpenAIEmbeddingFunction"):
                     raise ImportError("chromadb OpenAIEmbeddingFunction is unavailable in this version.")
                 self.embedding_fn = embedding_functions.OpenAIEmbeddingFunction(
