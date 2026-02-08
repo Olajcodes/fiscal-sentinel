@@ -12,6 +12,7 @@ from app.data.bank_transactions import (
 )
 from app.data.preview_store import delete_preview, load_preview, save_preview
 from app.data.mock_plaid import get_mock_transactions
+from app.data.vector_db import LegalKnowledgeBase
 import uvicorn
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -65,17 +66,9 @@ class PreviewResponse(BaseModel):
     confidence_stats: dict
 
 
-
-
-
 @app.get("/")
 def root():
     return {"message": "Fiscal Sentinel API up and running"}
-
-
-
-
-
 
 # Auth Routes
 @app.post("/register", status_code=201)
@@ -194,6 +187,15 @@ def analyze(req: Request):
             return {"response": response, "debug": debug_payload}
         res = run_sentinel(req.query, tx, history=req.history)
         return {"response": res}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+@app.get("/vector-db/health")
+def vector_db_health():
+    try:
+        kb = LegalKnowledgeBase()
+        stats = kb.get_collection_stats()
+        return {"provider": kb.provider, "collection": kb.collection_name, **stats}
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
