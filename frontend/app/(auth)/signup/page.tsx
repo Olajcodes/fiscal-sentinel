@@ -5,11 +5,15 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Shield, Mail, Lock, Eye, EyeOff, User, CheckCircle, AlertCircle, ArrowRight, CreditCard, Key } from 'lucide-react';
+import { useAuth } from '@/app/context/AuthContext';
 
 const RegisterPage = () => {
   const router = useRouter();
+  const { register } = useAuth();
+  
   const [formData, setFormData] = useState({
-    name: '',
+    firstName: '',
+    lastName: '',
     email: '',
     password: '',
     confirmPassword: '',
@@ -43,6 +47,11 @@ const RegisterPage = () => {
     setError('');
 
     // Validation
+    if (!formData.firstName.trim() || !formData.lastName.trim()) {
+      setError('Please enter your first and last name');
+      return;
+    }
+
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
       return;
@@ -61,25 +70,18 @@ const RegisterPage = () => {
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Registration failed');
-      }
-
-      // Simulate successful registration
-      console.log('Registration successful:', data);
+      await register(
+        formData.email,
+        formData.password,
+        formData.firstName,
+        formData.lastName,
+        'user' // Default role
+      );
       
-      // Redirect to verification or dashboard
+      // Redirect to dashboard after successful registration
       router.push('/dashboard?welcome=true');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      setError(err instanceof Error ? err.message : 'An error occurred during registration');
     } finally {
       setIsLoading(false);
     }
@@ -87,7 +89,8 @@ const RegisterPage = () => {
 
   const handleDemoRegistration = (type: 'personal' | 'business') => {
     const demoData = {
-      name: type === 'personal' ? 'Demo User' : 'Business Account',
+      firstName: type === 'personal' ? 'Demo' : 'Business',
+      lastName: type === 'personal' ? 'User' : 'Account',
       email: type === 'personal' ? 'demo@fiscalsentinel.com' : 'business@demo.com',
       password: 'SecurePass123!',
       confirmPassword: 'SecurePass123!',
@@ -225,21 +228,39 @@ const RegisterPage = () => {
 
                 {/* Form */}
                 <form onSubmit={handleSubmit} className="space-y-6">
-                  <div>
-                    <label htmlFor="name" className="mb-2 block text-sm font-medium text-gray-700">
-                      Full Name
-                    </label>
-                    <div className="relative">
-                      <User className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-                      <input
-                        id="name"
-                        type="text"
-                        value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        className="input pl-20"
-                        placeholder="John Doe"
-                        required
-                      />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="firstName" className="mb-2 block text-sm font-medium text-gray-700">
+                        First Name
+                      </label>
+                      <div className="relative">
+                        <User className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                        <input
+                          id="firstName"
+                          type="text"
+                          value={formData.firstName}
+                          onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                          className="input pl-10"
+                          placeholder="John"
+                          required
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label htmlFor="lastName" className="mb-2 block text-sm font-medium text-gray-700">
+                        Last Name
+                      </label>
+                      <div className="relative">
+                        <input
+                          id="lastName"
+                          type="text"
+                          value={formData.lastName}
+                          onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                          className="input"
+                          placeholder="Doe"
+                          required
+                        />
+                      </div>
                     </div>
                   </div>
 

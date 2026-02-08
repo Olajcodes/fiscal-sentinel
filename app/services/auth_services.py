@@ -310,6 +310,5 @@ class UserService:
 
         # clean up related data
         await user_profiles_collection.delete_many({"user_id": oid})
-        # Note: We'll delete courses and quizzes in their respective services
 
         return None  # 204 No Content
