@@ -160,6 +160,8 @@ if "preview" not in st.session_state:
     st.session_state.preview = None
 if "debug_mode" not in st.session_state:
     st.session_state.debug_mode = False
+if "vector_db_status" not in st.session_state:
+    st.session_state.vector_db_status = None
 
 tab_tx, tab_chat = st.tabs(["Transactions", "Assistant"])
 
@@ -246,6 +248,26 @@ with tab_tx:
     with col_right:
         st.subheader("Current Transactions")
         st.caption("Loaded transactions are used for analysis and letter drafting.")
+
+        status_cols = st.columns(2)
+        with status_cols[0]:
+            if st.button("Check Vector DB"):
+                status_payload, error = _api_get("/vector-db/health")
+                if error:
+                    st.error(error)
+                    st.session_state.vector_db_status = None
+                else:
+                    st.session_state.vector_db_status = status_payload
+
+        with status_cols[1]:
+            status = st.session_state.vector_db_status
+            if status:
+                provider = status.get("provider", "unknown")
+                collection = status.get("collection", "unknown")
+                vectors = status.get("vectors_count", 0)
+                st.write(f"Provider: {provider}")
+                st.write(f"Collection: {collection}")
+                st.write(f"Vectors: {vectors}")
 
         load_cols = st.columns(2)
         with load_cols[0]:
