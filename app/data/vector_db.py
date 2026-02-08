@@ -3,15 +3,25 @@
 import os
 import re
 from html import unescape
-from typing import Iterable, Optional
+from typing import Iterable, Optional, List, Dict
 
 import chromadb
 from chromadb.utils import embedding_functions
 from pypdf import PdfReader
+from sentence_transformers import SentenceTransformer
+from qdrant_client import QdrantClient
+from qdrant_client.http import models as qmodels
 
 # PATH CONFIGURATION
 DOCS_DIR = os.path.join(os.path.dirname(__file__), "documents")
 DB_PATH = os.path.join(os.path.dirname(__file__), "chroma_db_store")
+DEFAULT_COLLECTION = "consumer_laws"
+DEFAULT_EMBEDDING_MODEL = "all-MiniLM-L6-v2"
+
+VECTOR_DB_PROVIDER = os.environ.get("VECTOR_DB_PROVIDER", "chroma").lower()
+QDRANT_URL = os.environ.get("QDRANT_URL")
+QDRANT_API_KEY = os.environ.get("QDRANT_API_KEY")
+QDRANT_COLLECTION = os.environ.get("QDRANT_COLLECTION", DEFAULT_COLLECTION)
 
 
 def _infer_metadata_from_filename(file_name: str):
@@ -73,16 +83,49 @@ def _chunk_text(text: str, chunk_size: int = 1200, overlap: int = 200) -> Iterab
     return chunks
 
 
+def _clean_metadata(metadata: Dict[str, Optional[str]]) -> Dict[str, str]:
+    return {k: v for k, v in metadata.items() if v is not None}
+
+
 class LegalKnowledgeBase:
     def __init__(self):
-        # Persistent means it saves to disk, so you don't reload PDFs every run.
-        self.client = chromadb.PersistentClient(path=DB_PATH)
-        self.embedding_fn = embedding_functions.SentenceTransformerEmbeddingFunction(
-            model_name="all-MiniLM-L6-v2"
-        )
-        self.collection = self.client.get_or_create_collection(
-            name="consumer_laws",
-            embedding_function=self.embedding_fn,
+        self.provider = VECTOR_DB_PROVIDER
+        self.embedding_model = os.environ.get("EMBEDDING_MODEL", DEFAULT_EMBEDDING_MODEL)
+
+        if self.provider == "qdrant":
+            if not QDRANT_URL:
+                raise ValueError("QDRANT_URL is required when VECTOR_DB_PROVIDER=qdrant")
+            self.qdrant = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
+            self.embedder = SentenceTransformer(self.embedding_model)
+            self.collection_name = QDRANT_COLLECTION
+            self._ensure_qdrant_collection()
+            self.collection = None
+            self.client = None
+            self.embedding_fn = None
+        else:
+            # Persistent means it saves to disk, so you don't reload PDFs every run.
+            self.client = chromadb.PersistentClient(path=DB_PATH)
+            self.embedding_fn = embedding_functions.SentenceTransformerEmbeddingFunction(
+                model_name=self.embedding_model
+            )
+            self.collection = self.client.get_or_create_collection(
+                name=DEFAULT_COLLECTION,
+                embedding_function=self.embedding_fn,
+            )
+            self.qdrant = None
+            self.embedder = None
+            self.collection_name = DEFAULT_COLLECTION
+
+    def _ensure_qdrant_collection(self) -> None:
+        if self.qdrant.collection_exists(self.collection_name):
+            return
+        vector_size = self.embedder.get_sentence_embedding_dimension()
+        self.qdrant.create_collection(
+            collection_name=self.collection_name,
+            vectors_config=qmodels.VectorParams(
+                size=vector_size,
+                distance=qmodels.Distance.COSINE,
+            ),
         )
 
     def ingest_documents(self):
@@ -140,7 +183,24 @@ class LegalKnowledgeBase:
                 print(f"Skipping {file_name} due to error: {e}")
                 continue
 
-            if text_chunks:
+            if not text_chunks:
+                continue
+
+            if self.provider == "qdrant":
+                payloads = []
+                for meta, text in zip(metadatas, text_chunks):
+                    payload = _clean_metadata(meta)
+                    payload["text"] = text
+                    payloads.append(payload)
+
+                embeddings = self.embedder.encode(text_chunks, normalize_embeddings=True).tolist()
+                points = [
+                    qmodels.PointStruct(id=doc_id, vector=vector, payload=payload)
+                    for doc_id, vector, payload in zip(ids, embeddings, payloads)
+                ]
+                self.qdrant.upsert(collection_name=self.collection_name, points=points)
+                print(f"Indexed {len(text_chunks)} chunks from {file_name} into Qdrant")
+            else:
                 self.collection.upsert(documents=text_chunks, metadatas=metadatas, ids=ids)
                 print(f"Indexed {len(text_chunks)} chunks from {file_name}")
 
@@ -149,6 +209,44 @@ class LegalKnowledgeBase:
         Retrieves the most relevant legal text for a given query from the DB.
         If merchant is provided and present in metadata, retrieval is filtered.
         """
+        if self.provider == "qdrant":
+            query_vector = self.embedder.encode(query, normalize_embeddings=True).tolist()
+            search_filter = None
+            if merchant:
+                search_filter = qmodels.Filter(
+                    must=[
+                        qmodels.FieldCondition(
+                            key="merchant",
+                            match=qmodels.MatchValue(value=merchant),
+                        )
+                    ]
+                )
+            results = self.qdrant.search(
+                collection_name=self.collection_name,
+                query_vector=query_vector,
+                limit=n_results,
+                query_filter=search_filter,
+            )
+            if not results:
+                return "No specific legal documents found."
+
+            context = ""
+            for hit in results:
+                payload = hit.payload or {}
+                doc = payload.get("text", "")
+                source = payload.get("source", "unknown")
+                page = payload.get("page", "?")
+                merchant_meta = payload.get("merchant")
+                context += (
+                    "---\n"
+                    f"SOURCE: {source}\n"
+                    f"PAGE: {page}\n"
+                    f"MERCHANT: {merchant_meta}\n"
+                    f"EXCERPT: {doc[:500]}\n"
+                    "---\n"
+                )
+            return context
+
         where = {"merchant": merchant} if merchant else None
         results = self.collection.query(
             query_texts=[query],
