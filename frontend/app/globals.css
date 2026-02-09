@@ -185,6 +185,15 @@ body {
     box-shadow: var(--shadow);
     transition: all 0.2s ease;
   }
+
+  .card2 {
+    border: 1px solid hsl(var(--border));
+    background-color: white;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    transition: all 0.2s ease;
+  }
+  
   
   .card:hover {
     box-shadow: var(--shadow-md);
