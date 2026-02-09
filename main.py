@@ -20,6 +20,7 @@ from app.services import auth_services
 from app.services.conversation_services import (
     HISTORY_LIMIT,
     append_messages,
+    create_conversation,
     get_history,
     get_or_create_conversation,
 )
@@ -48,6 +49,10 @@ class Request(BaseModel):
     history: list | None = None
     debug: bool | None = False
     conversation_id: str | None = None
+    user_id: str | None = None
+
+
+class ConversationRequest(BaseModel):
     user_id: str | None = None
 
 
@@ -306,6 +311,20 @@ async def analyze(req: Request):
             "conversation_id": conversation_id,
             "history": history_out,
         }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post(
+    "/conversations/new",
+    summary="Create new conversation",
+    description="Start a new conversation session for a user.",
+    tags=["analysis"],
+)
+async def new_conversation(req: ConversationRequest):
+    try:
+        conversation_id = await create_conversation(req.user_id)
+        return {"conversation_id": conversation_id}
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 

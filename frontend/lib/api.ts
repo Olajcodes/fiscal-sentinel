@@ -9,6 +9,7 @@ import {
   AnalyzeRequest,
   AnalyzeResponse,
   AnalysisResponse,
+  ConversationResponse,
 } from './types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://fiscal-sentinel-production.up.railway.app';
@@ -102,6 +103,41 @@ class ApiService {
 
   resetConversation(): void {
     this.setConversationId(null);
+  }
+
+  async startNewConversation(): Promise<ConversationResponse> {
+    const payload: { user_id?: string } = {};
+    if (typeof window !== 'undefined') {
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        try {
+          const parsed = JSON.parse(userStr) as { id?: string };
+          if (parsed?.id) {
+            payload.user_id = parsed.id;
+          }
+        } catch {
+          // Ignore malformed user cache.
+        }
+      }
+    }
+
+    const response = await fetch(`${API_BASE_URL}/conversations/new`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(payload),
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const detail = data.detail || data.message;
+      throw new Error(detail || 'Failed to create conversation');
+    }
+
+    const result = data as ConversationResponse;
+    if (result?.conversation_id) {
+      this.setConversationId(result.conversation_id);
+    }
+    return result;
   }
 
   async analyze(request: AnalyzeRequest): Promise<AnalyzeResponse> {

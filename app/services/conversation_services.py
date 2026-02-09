@@ -54,6 +54,20 @@ async def get_or_create_conversation(conversation_id: Optional[str], user_id: Op
     return conversation_id
 
 
+async def create_conversation(user_id: Optional[str]) -> str:
+    conversation_id = str(uuid4())
+    doc = {
+        "conversation_id": conversation_id,
+        "messages": [],
+        "created_at": _now_iso(),
+        "updated_at": _now_iso(),
+    }
+    if user_id:
+        doc["user_id"] = user_id
+    await conversations_collection.insert_one(doc)
+    return conversation_id
+
+
 async def append_messages(
     conversation_id: str,
     messages: List[Dict[str, str]],

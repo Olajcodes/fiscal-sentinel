@@ -230,9 +230,16 @@ const DashboardPage = () => {
   };
 
   const handleNewChat = () => {
-    api.resetConversation();
-    setMessages([]);
-    setChatError(null);
+    api
+      .startNewConversation()
+      .catch((err) => {
+        console.error('Failed to start new conversation:', err);
+        api.resetConversation();
+      })
+      .finally(() => {
+        setMessages([]);
+        setChatError(null);
+      });
   };
 
   if (isLoading) {

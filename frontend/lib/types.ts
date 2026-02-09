@@ -105,3 +105,7 @@ export interface AnalyzeResponse {
   history?: ChatMessage[];
   debug?: unknown;
 }
+
+export interface ConversationResponse {
+  conversation_id: string;
+}
