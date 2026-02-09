@@ -1,131 +1,125 @@
 ﻿# Fiscal Sentinel
 
-The AI financial assistant that helps users spot questionable charges and draft dispute or cancellation letters **only when requested**.
+Fiscal Sentinel finds suspicious subscription charges in your bank statement and drafts dispute letters using verified policy evidence.
 
-Fiscal Sentinel combines transaction analysis, retrieval-augmented generation (RAG) over consumer agreements/regulations, and a conversational UI with explicit confirmation before drafting letters.
+## What It Does
+- Ingests bank statements (CSV or PDF), normalizes rows, and stores transactions.
+- Answers transaction questions deterministically (highest charge, totals, by-merchant, date ranges).
+- Retrieves legal and policy evidence only when the user asks about rights or requests a letter.
+- Drafts dispute or cancellation letters only after explicit confirmation.
 
-## Key Behavior
-- Conversational by default. Greetings and general questions do not trigger retrieval or letter drafting.
-- Analysis first. When asked to scan transactions, the agent summarizes findings and asks before drafting a letter.
-- Evidence only when needed. Legal citations are returned only if the user asks about legality, rights, or a letter.
+## Why It Matters
+Consumers often do not know which charges are valid or how to contest them. Fiscal Sentinel makes the workflow fast, evidence-based, and safe by default.
+
+## Product Flow (3 Minutes)
+1. Upload a bank statement (PDF or CSV). Preview and confirm columns if needed and correct.
+2. Ask a question like "Check out irregularities or supscious transaction in my account?"
+3. Ask about legality or request a letter to trigger evidence-backed drafting.
+
+## Key Features
+- OCR + parsing pipeline with preview and column mapping confirmation.
+- Deterministic transaction Q and A for common account questions.
+- Strict retrieval gating to avoid irrelevant citations.
+- Letter drafting with evidence excerpts when explicitly requested.
+- Opik tracing for routing, retrieval use, and outcome quality.
 
 ## Tech Stack
-- Frontend: Streamlit
-- Backend: FastAPI
-- Agent Orchestration: LangGraph
-- Model: OpenAI (via API)
-- Knowledge Base: ChromaDB + PyPDF (+ HTML/TXT parsing fallback)
-- Evaluation/Tracing: Opik (Comet)
-- Data: Mock Plaid transactions
+- Backend: FastAPI + LangGraph
+- Frontend: Streamlit (UI), deployable to Streamlit Cloud
+- Embeddings: OpenAI (production) or SentenceTransformers (local)
+- Vector DB: Qdrant (production) or Chroma (local)
+- Tracing and evaluation: Opik
 
 ## Project Structure
 ```
 fiscal-sentinel/
-├── app/
-│   ├── agent/          # LangGraph routing + prompts
-│   ├── data/           # Mock data + vector store
-│   └── evaluation/     # Opik metrics and experiments
-├── frontend/           # Streamlit UI
-├── main.py             # FastAPI backend
-└── requirements.txt    # Dependencies
+??? app/
+?   ??? agent/          # LangGraph routing + prompts
+?   ??? analysis/       # Transaction query + rules
+?   ??? data/           # Documents + vector store + parsers
+?   ??? evaluation/     # Opik metrics and experiments
+??? frontend/           # Streamlit UI
+??? main.py             # FastAPI backend
+??? requirements.txt    # Production deps (Railway)
+??? requirements.local.txt  # Local dev deps (Streamlit + Chroma + ST embeddings)
 ```
 
-## Quickstart
-1) Create and activate a virtual environment
+## Run Locally
+1. Create and activate a virtual environment
 ```bash
 python -m venv venv
 # Windows PowerShell
 .\venv\Scripts\Activate.ps1
 ```
 
-2) Install dependencies
+2. Install local dependencies
 ```bash
-pip install -r requirements.txt
+pip install -r requirements.local.txt
 ```
 
-3) Configure environment variables
-Create a `.env` file in the repo root:
+3. Create a `.env` file
 ```
 OPENAI_API_KEY=sk-...
 OPIK_API_KEY=...
+VECTOR_DB_PROVIDER=chroma
+EMBEDDING_PROVIDER=local
+DEFAULT_CURRENCY=NGN
+DEFAULT_CURRENCY_SYMBOL=NGN
 ```
 
-## Sample Upload Files
-Use these to test the upload flow and analyzer:
-- app/data/examples/transactions_sample.csv
-- app/data/examples/transactions_sample.json
-
-Upload via the UI sidebar or POST to `/transactions/upload`.
-
-## RAG Data (Recommended Competition Set)
-You can download documents locally (recommended) and ingest them into ChromaDB.
-
-Recommended set (5 merchants + regulations):
-- app/data/documents/netflix_terms.pdf
-- app/data/documents/planet_fitness_terms.pdf
-- app/data/documents/adobe_terms.pdf
-- app/data/documents/spotify_terms.pdf
-- app/data/documents/amazon_terms.pdf
-- app/data/documents/ftc_negative_option_rule.pdf
-- app/data/documents/state_consumer_protection.pdf
-
-Download locally:
-```bash
-python scripts/download_documents.py
-```
-
-Ingest into ChromaDB:
-```bash
-python app/data/vector_db.py
-```
-
-Notes:
-- The downloader may fetch HTML pages; ingestion handles PDF/HTML/TXT.
-- Do not commit the downloaded PDFs or `app/data/chroma_db_store`.
-
-## Run the App
-Terminal 1 (Backend):
+4. Run the backend
 ```bash
 python main.py
 ```
 
-Terminal 2 (Frontend):
+5. Run the UI
 ```bash
 streamlit run frontend/ui.py
 ```
 
-UI note: after analysis, a **Draft the letter** button appears to confirm intent before letter generation.
+## Production (Railway + Qdrant)
+Recommended production settings use OpenAI embeddings + Qdrant.
 
-## PDF Statement Uploads
-For bank statements in PDF, the upload parser uses `camelot` (text-based PDFs). If the statement is scanned (image-only),
-the system falls back to OCR using `pdf2image` + `pytesseract`.
-
-OCR prerequisites (system installs):
-- Poppler (for `pdf2image`)
-- Tesseract OCR (for `pytesseract`)
-
-If Poppler is unavailable, OCR falls back to PyMuPDF rendering. You can also set
-`POPPLER_PATH` and/or `TESSERACT_CMD` to point to the installed binaries. If OCR
-still fails, export a CSV/JSON from your bank instead.
-
-## Transaction Upload Preview API
-For complex PDFs, use a preview step to confirm columns:
-
-1) Preview (returns suggested mapping + sample rows)
-```bash
-curl -F "file=@/path/to/statement.pdf" http://localhost:8000/transactions/preview
+Required Railway env vars:
+```
+OPENAI_API_KEY=...
+OPIK_API_KEY=...
+OPIK_WORKSPACE=olajcodes
+OPIK_PROJECT_NAME=Fiscal Sentinel
+VECTOR_DB_PROVIDER=qdrant
+EMBEDDING_PROVIDER=openai
+OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+OPENAI_EMBEDDING_DIM=1536
+QDRANT_URL=...
+QDRANT_API_KEY=...
+QDRANT_COLLECTION=consumer_laws
 ```
 
-2) Confirm (send mapping from preview)
-```bash
-curl -X POST http://localhost:8000/transactions/confirm \
-  -H "Content-Type: application/json" \
-  -d '{"preview_id":"<id>","mapping":{"date":"date_time","money_out":"money_out","money_in":"money_in","merchant_name":"party","description":"description","category":"category"}}'
+For OCR on Railway (PDF statements):
+```
+RAILPACK_DEPLOY_APT_PACKAGES=tesseract-ocr tesseract-ocr-eng poppler-utils
 ```
 
-Preview response includes a `schema` object describing target fields (e.g., `date`, `money_in`, `merchant_name`) so
-frontends can build a generic column-mapper UI. OCR rows may include a `confidence` score (0.0–1.0) to flag low-quality parses.
-The preview response also returns `confidence_stats` (avg/min/max/count) for quick quality checks.
+## Ingest RAG Documents
+Add documents to `app/data/documents/` and ingest:
+```bash
+python -m app.data.vector_db
+```
+
+## API Overview
+- `GET /` Health check
+- `GET /transactions` List stored or mock transactions
+- `POST /transactions/preview` Preview a CSV/PDF upload and get mapping suggestions
+- `POST /transactions/confirm` Persist the previewed rows using a mapping
+- `POST /transactions/upload` Direct upload without a preview step
+- `POST /analyze` Ask the agent a question
+- `GET /vector-db/health` Vector DB provider and count
+
+## Streamlit Cloud
+Set Streamlit secrets:
+```
+API_URL="https://fiscal-sentinel-production.up.railway.app"
+```
 
 ## Evaluation (Opik)
 Run the evaluation suite:
@@ -139,9 +133,10 @@ Custom metrics live in `app/evaluation/metrics.py`:
 - ConversationMetric
 - RetrievalDisciplineMetric
 
-## Roadmap
-- Frontend upgrade to React/Next.js
-- Deeper multi-turn negotiation workflows
-- Expanded datasets and scenario coverage
+## Demo Script (3 Minutes)
+See `docs/demo_script.md`.
+
+## Pitch Deck (10 Slides)
+See `docs/pitch_deck.md`.
 
 

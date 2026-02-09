@@ -1,7 +1,21 @@
+import os
 import streamlit as st
 import requests
 
-API_URL = "http://localhost:8000"
+API_URL = os.getenv("API_URL", "").strip()
+if not API_URL:
+    try:
+        API_URL = st.secrets.get("API_URL", "").strip()
+    except Exception:
+        API_URL = ""
+if not API_URL:
+    API_URL = "http://localhost:8000"
+
+api_label = API_URL.replace("https://", "").replace("http://", "")
+st.markdown(
+    f"<div style='color:#6b7280; font-size:0.9rem; margin-bottom:0.75rem;'>Connected API: {api_label}</div>",
+    unsafe_allow_html=True,
+)
 st.set_page_config(page_title="Fiscal Sentinel", page_icon="FS", layout="wide")
 
 LOGO_SVG = """
