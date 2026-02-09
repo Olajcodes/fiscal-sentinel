@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import io
+import io
 import json
 import uuid
 import tempfile
@@ -424,7 +425,15 @@ def _parse_ocr_rows(text: str) -> List[Dict[str, str]]:
         if "inward" in lower or "credit" in lower or "money in" in lower:
             direction = "in" if direction == "" else direction
 
-        amounts = [m.group(0) for m in AMOUNT_RE.finditer(row_text)]
+        amount_text = DATE_RE.sub(" ", row_text)
+        amount_text = TIME_RE.sub(" ", amount_text)
+        amounts = []
+        for match in AMOUNT_RE.finditer(amount_text):
+            value = match.group(0).strip()
+            digits_only = re.sub(r"[^0-9]", "", value)
+            if len(digits_only) >= 7 and "," not in value and "." not in value:
+                continue
+            amounts.append(value)
         if not amounts:
             continue
         primary_amount = amounts[0]
@@ -484,6 +493,37 @@ def _parse_transactions_from_ocr(text: str) -> List[Dict[str, Any]]:
     return normalize_rows_with_mapping(rows, mapping)
 
 
+def _extract_text_from_pdf(content: bytes) -> str:
+    try:
+        reader = PdfReader(io.BytesIO(content))
+        texts = [page.extract_text() or "" for page in reader.pages]
+        return "\n".join(texts)
+    except Exception:
+        try:
+            import fitz  # PyMuPDF
+        except Exception:
+            return ""
+        try:
+            doc = fitz.open(stream=content, filetype="pdf")
+            return "\n".join(page.get_text() for page in doc)
+        except Exception:
+            return ""
+
+
+def _row_quality(rows: List[Dict[str, Any]]) -> float:
+    if not rows:
+        return 0.0
+    valid = 0
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        date_time = (row.get("date_time") or "").strip()
+        amount = (row.get("money_in") or row.get("money_out") or "").strip()
+        if date_time and amount:
+            valid += 1
+    return valid / max(len(rows), 1)
+
+
 def extract_pdf_rows(content: bytes) -> Dict[str, Any]:
     camelot_available = True
     try:
@@ -494,6 +534,7 @@ def extract_pdf_rows(content: bytes) -> Dict[str, Any]:
     rows: List[Dict[str, str]] = []
     tmp_path = None
     source = "ocr"
+    notes: List[str] = []
 
     try:
         if camelot_available:
@@ -534,13 +575,26 @@ def extract_pdf_rows(content: bytes) -> Dict[str, Any]:
                                     "confidence": 1.0,
                                 }
                             )
-            except Exception:
+                    if _row_quality(rows) < 0.4:
+                        rows = []
+                        source = "ocr"
+                        notes.append("camelot_low_quality_fallback")
+            except Exception as exc:
                 rows = []
+                notes.append(f"camelot_error:{type(exc).__name__}")
 
         if not rows:
-            ocr_text = _ocr_pdf_to_text(content)
-            rows = _parse_ocr_rows(ocr_text)
-            source = "ocr"
+            text = _extract_text_from_pdf(content)
+            text_rows = _parse_ocr_rows(text)
+            if text_rows:
+                rows = text_rows
+                source = "text"
+                notes.append("used_pdf_text")
+            else:
+                ocr_text = _ocr_pdf_to_text(content)
+                rows = _parse_ocr_rows(ocr_text)
+                source = "ocr"
+                notes.append("used_ocr")
     finally:
         try:
             if tmp_path:
@@ -549,7 +603,7 @@ def extract_pdf_rows(content: bytes) -> Dict[str, Any]:
             pass
 
     columns = ["date_time", "money_in", "money_out", "category", "party", "description", "balance"]
-    return {"columns": columns, "rows": rows, "source": source}
+    return {"columns": columns, "rows": rows, "source": source, "notes": notes}
 
 
 def suggest_mapping(columns: List[str]) -> Dict[str, str]:

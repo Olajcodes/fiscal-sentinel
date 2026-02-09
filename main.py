@@ -66,6 +66,7 @@ class PreviewResponse(BaseModel):
     sample_rows: list[dict]
     suggested_mapping: dict
     source: str
+    notes: list[str] | None = None
     preview_schema: PreviewSchema = Field(alias="schema")
     confidence_stats: dict
 
@@ -186,6 +187,7 @@ async def preview_transactions(file: UploadFile = File(...)):
         "sample_rows": sample_rows,
         "suggested_mapping": preview.get("suggested_mapping", {}),
         "source": preview.get("source", "unknown"),
+        "notes": preview.get("notes", []),
         "schema": preview.get("schema", {}),
         "confidence_stats": preview.get(
             "confidence_stats",

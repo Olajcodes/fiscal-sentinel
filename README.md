@@ -25,7 +25,7 @@ Consumers often do not know which charges are valid or how to contest them. Fisc
 
 ## Tech Stack
 - Backend: FastAPI + LangGraph
-- Frontend: Streamlit (UI), deployable to Streamlit Cloud
+- Frontend: Next.js (in `frontend/`)
 - Embeddings: OpenAI (production) or SentenceTransformers (local)
 - Vector DB: Qdrant (production) or Chroma (local)
 - Tracing and evaluation: Opik
@@ -33,15 +33,15 @@ Consumers often do not know which charges are valid or how to contest them. Fisc
 ## Project Structure
 ```
 fiscal-sentinel/
-??? app/
-?   ??? agent/          # LangGraph routing + prompts
-?   ??? analysis/       # Transaction query + rules
-?   ??? data/           # Documents + vector store + parsers
-?   ??? evaluation/     # Opik metrics and experiments
-??? frontend/           # Streamlit UI
-??? main.py             # FastAPI backend
-??? requirements.txt    # Production deps (Railway)
-??? requirements.local.txt  # Local dev deps (Streamlit + Chroma + ST embeddings)
+├── app/
+│   ├── agent/          # LangGraph routing + prompts
+│   ├── analysis/       # Transaction query + rules
+│   ├── data/           # Documents + vector store + parsers
+│   └── evaluation/     # Opik metrics and experiments
+├── frontend/           # Next.js web UI
+├── main.py             # FastAPI backend
+├── requirements.txt    # Production deps (Railway)
+└── requirements.local.txt  # Local dev deps (optional Streamlit + Chroma + ST embeddings)
 ```
 
 ## Run Locally
@@ -72,9 +72,11 @@ DEFAULT_CURRENCY_SYMBOL=NGN
 python main.py
 ```
 
-5. Run the UI
+5. Run the web UI
 ```bash
-streamlit run frontend/ui.py
+cd frontend
+npm install
+npm run dev
 ```
 
 ## Production (Railway + Qdrant)
@@ -115,11 +117,9 @@ python -m app.data.vector_db
 - `POST /analyze` Ask the agent a question
 - `GET /vector-db/health` Vector DB provider and count
 
-## Streamlit Cloud
-Set Streamlit secrets:
-```
-API_URL="https://fiscal-sentinel-production.up.railway.app"
-```
+## Frontend Deployment
+Deploy the Next.js app in `frontend/` to Vercel (recommended) or Railway.
+Configure the backend URL using your frontend environment settings (e.g., `NEXT_PUBLIC_API_URL`).
 
 ## Evaluation (Opik)
 Run the evaluation suite:
