@@ -9,10 +9,12 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://fiscal-sentinel
 
 class ApiService {
   private token: string | null = null;
+  private conversationId: string | null = null;
 
   constructor() {
     if (typeof window !== 'undefined') {
       this.token = localStorage.getItem('token');
+      this.conversationId = localStorage.getItem('conversation_id');
     }
   }
 

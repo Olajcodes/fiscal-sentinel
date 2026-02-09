@@ -17,6 +17,12 @@ import uvicorn
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.services import auth_services
+from app.services.conversation_services import (
+    HISTORY_LIMIT,
+    append_messages,
+    get_history,
+    get_or_create_conversation,
+)
 
 app = FastAPI(
     title="Fiscal Sentinel API",
@@ -41,6 +47,7 @@ class Request(BaseModel):
     query: str
     history: list | None = None
     debug: bool | None = False
+    conversation_id: str | None = None
 
 
 class PreviewConfirmRequest(BaseModel):
@@ -248,14 +255,53 @@ async def upload_transactions(file: UploadFile = File(...)):
     description="Run the agent over a user query and current transactions.",
     tags=["analysis"],
 )
-def analyze(req: Request):
+async def analyze(req: Request):
     try:
         tx = load_transactions() or get_mock_transactions()
+        history = req.history or []
+        conversation_id = req.conversation_id
+
+        if conversation_id or req.history is None:
+            conversation_id = await get_or_create_conversation(conversation_id)
+            history = await get_history(conversation_id, limit=HISTORY_LIMIT)
+
         if req.debug:
-            response, debug_payload = run_sentinel(req.query, tx, history=req.history, debug=True)
-            return {"response": response, "debug": debug_payload}
-        res = run_sentinel(req.query, tx, history=req.history)
-        return {"response": res}
+            response, debug_payload = run_sentinel(req.query, tx, history=history, debug=True)
+            new_messages = [
+                {"role": "user", "content": req.query},
+                {"role": "assistant", "content": response},
+            ]
+            history_out = (history + new_messages)[-HISTORY_LIMIT:]
+            if conversation_id:
+                await append_messages(
+                    conversation_id,
+                    new_messages,
+                    limit=HISTORY_LIMIT,
+                )
+            return {
+                "response": response,
+                "debug": debug_payload,
+                "conversation_id": conversation_id,
+                "history": history_out,
+            }
+
+        response = run_sentinel(req.query, tx, history=history)
+        new_messages = [
+            {"role": "user", "content": req.query},
+            {"role": "assistant", "content": response},
+        ]
+        history_out = (history + new_messages)[-HISTORY_LIMIT:]
+        if conversation_id:
+            await append_messages(
+                conversation_id,
+                new_messages,
+                limit=HISTORY_LIMIT,
+            )
+        return {
+            "response": response,
+            "conversation_id": conversation_id,
+            "history": history_out,
+        }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
