@@ -139,5 +139,4 @@ See `docs/demo_script.md`.
 ## Pitch Deck (10 Slides)
 See `docs/pitch_deck.md`.
 
-## License
-MIT
+

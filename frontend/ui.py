@@ -215,6 +215,9 @@ with tab_tx:
             st.divider()
             st.subheader("Preview Summary")
             st.write(f"Source: {preview.get('source', 'unknown')}")
+            notes = preview.get("notes") or []
+            if notes:
+                st.caption(f"Notes: {', '.join(notes)}")
             stats = preview.get("confidence_stats", {})
             if stats:
                 st.write(
