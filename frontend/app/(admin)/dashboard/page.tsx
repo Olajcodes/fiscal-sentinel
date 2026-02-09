@@ -74,6 +74,15 @@ const formatCurrencyInText = (text: string, formatter: Intl.NumberFormat) => {
   );
 };
 
+const unwrapMarkdownFence = (text: string) => {
+  const trimmed = text.trim();
+  const match = trimmed.match(/^```[a-zA-Z0-9_-]*\n([\s\S]*?)\n```$/);
+  if (match && match[1]) {
+    return match[1].trim();
+  }
+  return text;
+};
+
 const DashboardPage = () => {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
@@ -303,6 +312,7 @@ const DashboardPage = () => {
                   {messages.map((message, index) => {
                     const isUser = message.role === 'user';
                     const formattedContent = formatCurrencyInText(message.content, currencyFormatter);
+                    const normalizedContent = unwrapMarkdownFence(formattedContent);
                     return (
                       <div
                         key={`${message.role}-${index}`}
@@ -313,15 +323,19 @@ const DashboardPage = () => {
                             isUser
                               ? 'bg-blue-600 text-white border-blue-600'
                               : 'bg-white text-gray-800 border-gray-200'
-                          }`}
+                          } break-words whitespace-pre-wrap`}
                         >
                           <ReactMarkdown
                             remarkPlugins={[remarkGfm]}
                             components={{
-                              p: ({ children }) => <p className="leading-relaxed">{children}</p>,
+                              p: ({ children }) => (
+                                <p className="leading-relaxed whitespace-pre-wrap break-words">{children}</p>
+                              ),
                               ul: ({ children }) => <ul className="list-disc pl-5 space-y-1">{children}</ul>,
                               ol: ({ children }) => <ol className="list-decimal pl-5 space-y-1">{children}</ol>,
-                              li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+                              li: ({ children }) => (
+                                <li className="leading-relaxed whitespace-pre-wrap break-words">{children}</li>
+                              ),
                               a: ({ children, href }) => (
                                 <a
                                   href={href}
@@ -332,14 +346,19 @@ const DashboardPage = () => {
                                   {children}
                                 </a>
                               ),
-                              code: ({ children }) => (
-                                <code className="rounded bg-gray-100 px-1 py-0.5 text-xs md:text-sm">
-                                  {children}
-                                </code>
-                              ),
+                              code: ({ inline, children }) =>
+                                inline ? (
+                                  <code className="rounded bg-gray-100 px-1 py-0.5 text-xs md:text-sm">
+                                    {children}
+                                  </code>
+                                ) : (
+                                  <pre className="whitespace-pre-wrap break-words rounded-lg bg-gray-100 p-3 text-xs md:text-sm">
+                                    <code>{children}</code>
+                                  </pre>
+                                ),
                             }}
                           >
-                            {formattedContent}
+                            {normalizedContent}
                           </ReactMarkdown>
                         </div>
                       </div>
