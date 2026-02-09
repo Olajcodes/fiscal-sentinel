@@ -37,7 +37,7 @@
 ## 8. Tech Stack
 - FastAPI + LangGraph
 - Qdrant + OpenAI embeddings
-- Streamlit UI
+- Next.js web UI
 - Opik evaluation
 
 ## 9. Roadmap

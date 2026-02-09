@@ -5,7 +5,7 @@ Show that Fiscal Sentinel can ingest statements, answer transaction questions de
 
 ## Prep
 - Backend running (Railway or local).
-- UI running (Streamlit).
+- UI running (Next.js web app).
 - Uploaded sample PDF or CSV ready.
 
 ## Script
