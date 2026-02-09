@@ -170,6 +170,51 @@ def _detect_merchant_from_text(text: str) -> Optional[str]:
     return None
 
 
+def _is_out_of_scope(text: str) -> bool:
+    normalized = _normalize_text(text)
+    if not normalized:
+        return False
+    domain_triggers = [
+        "transaction",
+        "transactions",
+        "subscription",
+        "subscriptions",
+        "charge",
+        "charges",
+        "fee",
+        "fees",
+        "bank",
+        "statement",
+        "dispute",
+        "refund",
+        "cancel",
+        "cancelation",
+        "cancellation",
+        "merchant",
+        "law",
+        "legal",
+        "rights",
+        "ftc",
+    ]
+    off_domain_triggers = [
+        "who is",
+        "who's",
+        "what is",
+        "what's",
+        "define",
+        "history of",
+        "build a website",
+        "html",
+        "css",
+        "javascript",
+        "python",
+        "java",
+    ]
+    if any(term in normalized for term in domain_triggers):
+        return False
+    return any(term in normalized for term in off_domain_triggers)
+
+
 def _basic_intent_heuristic(user_input: str, messages: List[Dict[str, str]]) -> Optional[str]:
     text = _normalize_text(user_input)
     if re.fullmatch(r"(hi|hello|hey|good morning|good afternoon|good evening)[!. ]*", text):
@@ -182,6 +227,8 @@ def _basic_intent_heuristic(user_input: str, messages: List[Dict[str, str]]) -> 
         return "retrieve_laws"
     if _wants_analysis(text):
         return "analyze_transactions"
+    if len(text.split()) <= 6 and text.endswith("?"):
+        return "general_question"
     return None
 
 
@@ -265,6 +312,14 @@ def build_graph(client: OpenAI, kb: Optional[LegalKnowledgeBase] = None):
     @track(name="assistant")
     def assistant(state: AgentState) -> AgentState:
         messages = state.get("messages", [])
+        user_input = state.get("user_input", "")
+        if _is_out_of_scope(user_input):
+            response = (
+                "I can’t help with that. I’m focused on analyzing transactions, spotting "
+                "suspicious charges, and drafting dispute or cancellation letters with evidence. "
+                "Ask me about your bank statement, a charge, or a subscription issue."
+            )
+            return {"assistant_response": response}
         base = [{"role": "system", "content": FISCAL_SENTINEL_ASSISTANT_PROMPT}]
         response = client.chat.completions.create(
             model="gpt-4o-mini",
