@@ -119,6 +119,36 @@ def _batch_items(items: List, batch_size: int) -> Iterable[List]:
         yield items[idx : idx + batch_size]
 
 
+def _sanitize_collection_suffix(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", value.lower()).strip("_")
+
+
+def _extract_qdrant_vector_size(info: object) -> Optional[int]:
+    try:
+        config = getattr(info, "config", None)
+        params = getattr(config, "params", None)
+        vectors = getattr(params, "vectors", None)
+        if vectors is None and isinstance(params, dict):
+            vectors = params.get("vectors")
+
+        if vectors is None:
+            return None
+
+        if hasattr(vectors, "size"):
+            return int(vectors.size)
+        if isinstance(vectors, dict):
+            if "size" in vectors:
+                return int(vectors["size"])
+            first = next(iter(vectors.values()), None)
+            if hasattr(first, "size"):
+                return int(first.size)
+            if isinstance(first, dict) and "size" in first:
+                return int(first["size"])
+    except Exception:
+        return None
+    return None
+
+
 def _load_sentence_transformer(model_name: str):
     try:
         from sentence_transformers import SentenceTransformer
@@ -206,13 +236,27 @@ class LegalKnowledgeBase:
             self.collection_name = DEFAULT_COLLECTION
 
     def _ensure_qdrant_collection(self) -> None:
-        if self.qdrant.collection_exists(self.collection_name):
-            return
         vector_size = self.embedding_dim
         if vector_size is None and self.embedder is not None:
             vector_size = self.embedder.get_sentence_embedding_dimension()
         if vector_size is None:
             raise ValueError("Unable to determine embedding dimension for Qdrant collection.")
+        if self.qdrant.collection_exists(self.collection_name):
+            info = self.qdrant.get_collection(self.collection_name)
+            existing_size = _extract_qdrant_vector_size(info)
+            if existing_size and existing_size != vector_size:
+                suffix = _sanitize_collection_suffix(f"{self.embedding_provider}_{vector_size}")
+                new_name = f"{self.collection_name}_{suffix}"
+                self.collection_name = new_name
+                if not self.qdrant.collection_exists(self.collection_name):
+                    self.qdrant.create_collection(
+                        collection_name=self.collection_name,
+                        vectors_config=qmodels.VectorParams(
+                            size=vector_size,
+                            distance=qmodels.Distance.COSINE,
+                        ),
+                    )
+            return
         self.qdrant.create_collection(
             collection_name=self.collection_name,
             vectors_config=qmodels.VectorParams(
