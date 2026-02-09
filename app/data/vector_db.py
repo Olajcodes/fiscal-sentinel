@@ -345,18 +345,20 @@ class LegalKnowledgeBase:
                         )
                     ]
                 )
-            results = self.qdrant.search(
+            results = self.qdrant.query_points(
                 collection_name=self.collection_name,
-                query_vector=query_vector,
+                query=query_vector,
                 limit=n_results,
                 query_filter=search_filter,
+                with_payload=True,
             )
-            if not results:
+            points = getattr(results, "points", None) or getattr(results, "result", None) or []
+            if not points:
                 return "No specific legal documents found."
 
             context = ""
-            for hit in results:
-                payload = hit.payload or {}
+            for hit in points:
+                payload = getattr(hit, "payload", None) or {}
                 doc = payload.get("text", "")
                 source = payload.get("source", "unknown")
                 page = payload.get("page", "?")
