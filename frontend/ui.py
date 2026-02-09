@@ -118,6 +118,9 @@ def send_message(user_text: str):
 
     with st.spinner("Analyzing..."):
         payload_body = {"query": user_text, "debug": st.session_state.debug_mode}
+        user_id = st.session_state.get("user_id")
+        if user_id:
+            payload_body["user_id"] = user_id
         conversation_id = st.session_state.get("conversation_id")
         if conversation_id:
             payload_body["conversation_id"] = conversation_id
@@ -173,6 +176,8 @@ if "msgs" not in st.session_state:
     st.session_state.msgs = []
 if "offer_letter" not in st.session_state:
     st.session_state.offer_letter = False
+if "user_id" not in st.session_state:
+    st.session_state.user_id = "streamlit-demo-user"
 if "conversation_id" not in st.session_state:
     st.session_state.conversation_id = None
 if "tx" not in st.session_state:
@@ -321,6 +326,13 @@ with tab_chat:
     st.subheader("Ask Fiscal Sentinel")
     st.caption('Example: "What is the highest transaction in my account?"')
     st.checkbox("Show routing debug", key="debug_mode")
+    if not st.session_state.conversation_id:
+        new_payload, error = _api_post_json(
+            "/conversations/new",
+            {"user_id": st.session_state.user_id},
+        )
+        if not error and new_payload:
+            st.session_state.conversation_id = new_payload.get("conversation_id")
 
     for m in st.session_state.msgs:
         with st.chat_message(m["role"]):
@@ -337,3 +349,7 @@ with tab_chat:
         if st.button("Draft the letter"):
             st.session_state.offer_letter = False
             send_message("Yes, please draft the letter.")
+    if st.button("New chat"):
+        st.session_state.msgs = []
+        st.session_state.offer_letter = False
+        st.session_state.conversation_id = None
