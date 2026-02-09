@@ -353,14 +353,14 @@ const DashboardPage = () => {
                                   {children}
                                 </a>
                               ),
-                              code: ({ inline, children }) =>
-                                inline ? (
+                              code: (props: React.ComponentProps<'code'> & { inline?: boolean }) =>
+                                props.inline ? (
                                   <code className="rounded bg-gray-100 px-1 py-0.5 text-xs md:text-sm">
-                                    {children}
+                                    {props.children}
                                   </code>
                                 ) : (
                                   <pre className="whitespace-pre-wrap break-words rounded-lg bg-gray-100 p-3 text-xs md:text-sm">
-                                    <code>{children}</code>
+                                    <code>{props.children}</code>
                                   </pre>
                                 ),
                             }}
