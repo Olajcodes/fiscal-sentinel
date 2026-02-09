@@ -1,14 +1,11 @@
 // lib/api.ts
-import {
-  User, UserCourse, QuizQuestion, QuizAttempt,
-  CourseCatalog, GameProgress, LoginCredentials,
-  RegisterCredentials, QuizSubmission, CourseEnrollment,
-  ApiResponse, RecentActivity, CourseWithDetails, QuestionWithDetails, AdminFilters, ChartData, AdminStats, UserWithDetails,
-  AnalyzeRequest, AnalyzeResponse,
+import { 
+  User, LoginCredentials, RegisterCredentials, ApiResponse, 
+  RecentActivity, ChartData, Transaction, 
+  UploadPreviewResponse, AnalysisRequest, AnalysisResponse 
 } from './types';
 
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://fiscal-sentinel-production.up.railway.app';
 
 class ApiService {
   private token: string | null = null;
@@ -34,11 +31,13 @@ class ApiService {
   }
 
   private async handleResponse<T>(response: Response): Promise<ApiResponse<T>> {
+    const data = await response.json().catch(() => ({ message: 'Invalid response from server' }));
+    
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'An error occurred' }));
-      throw new Error(error.message || 'Request failed');
+      throw new Error(data.message || data.detail || `Request failed with status ${response.status}`);
     }
-    return response.json();
+    
+    return data;
   }
 
   // Auth endpoints
@@ -52,7 +51,9 @@ class ApiService {
     const result = await this.handleResponse<User>(response);
     
     if (typeof window !== 'undefined') {
-      localStorage.setItem('token', 'dummy-token'); // Replace with actual JWT
+      // Store dummy token (backend doesn't return JWT)
+      localStorage.setItem('token', 'dummy-token');
+      this.token = 'dummy-token';
       localStorage.setItem('user', JSON.stringify(result.data));
     }
     
@@ -69,7 +70,9 @@ class ApiService {
     const result = await this.handleResponse<User>(response);
     
     if (typeof window !== 'undefined') {
+      // Store dummy token (backend doesn't return JWT)
       localStorage.setItem('token', 'dummy-token');
+      this.token = 'dummy-token';
       localStorage.setItem('user', JSON.stringify(result.data));
     }
     
@@ -77,27 +80,36 @@ class ApiService {
   }
 
   async logout(): Promise<void> {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+    try {
+      await fetch(`${API_BASE_URL}/logout`, {
+        method: 'POST',
+        headers: this.getHeaders(),
+      });
+    } catch (error) {
+      console.error('Logout API call failed:', error);
+    } finally {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+      }
+      this.token = null;
     }
-    this.token = null;
   }
 
   // User endpoints
   async getCurrentUser(): Promise<User | null> {
     if (typeof window !== 'undefined') {
       const userStr = localStorage.getItem('user');
-      return userStr ? JSON.parse(userStr) : null;
+      if (userStr) {
+        try {
+          return JSON.parse(userStr);
+        } catch (error) {
+          console.error('Failed to parse user from localStorage:', error);
+          return null;
+        }
+      }
     }
     return null;
-  }
-
-  async getUserProfile(userId: string): Promise<ApiResponse<any>> {
-    const response = await fetch(`${API_BASE_URL}/users/${userId}`, {
-      headers: this.getHeaders(),
-    });
-    return this.handleResponse(response);
   }
 
   async updateUser(userId: string, data: Partial<User>): Promise<ApiResponse<User>> {
@@ -109,65 +121,93 @@ class ApiService {
     return this.handleResponse<User>(response);
   }
 
-  async deleteUser(userId: string): Promise<ApiResponse<void>> {
-    const response = await fetch(`${API_BASE_URL}/users/${userId}`, {
-      method: 'DELETE',
+  // Transaction endpoints
+  async getTransactions(): Promise<Transaction[]> {
+    const response = await fetch(`${API_BASE_URL}/transactions`, {
       headers: this.getHeaders(),
     });
-    return this.handleResponse<void>(response);
-  }
-
-  private setConversationId(conversationId: string | null) {
-    this.conversationId = conversationId;
-    if (typeof window !== 'undefined') {
-      if (conversationId) {
-        localStorage.setItem('conversation_id', conversationId);
-      } else {
-        localStorage.removeItem('conversation_id');
-      }
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Failed to fetch transactions');
     }
+    
+    return response.json();
   }
 
-  getConversationId(): string | null {
-    return this.conversationId;
-  }
+  async previewTransactions(file: File): Promise<UploadPreviewResponse> {
+    const formData = new FormData();
+    formData.append('file', file);
 
-  resetConversation(): void {
-    this.setConversationId(null);
-  }
-
-  async analyze(request: AnalyzeRequest): Promise<AnalyzeResponse> {
-    const payload: AnalyzeRequest = { ...request };
-    if (!payload.conversation_id && this.conversationId) {
-      payload.conversation_id = this.conversationId;
+    const response = await fetch(`${API_BASE_URL}/transactions/preview`, {
+      method: 'POST',
+      headers: {
+        'Authorization': this.token ? `Bearer ${this.token}` : '',
+      },
+      body: formData,
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Preview failed');
     }
+    
+    return response.json();
+  }
 
+  async confirmTransactions(previewId: string, mapping: Record<string, string>): Promise<{ count: number }> {
+    const response = await fetch(`${API_BASE_URL}/transactions/confirm`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ preview_id: previewId, mapping }),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Confirmation failed');
+    }
+    
+    return response.json();
+  }
+
+  async uploadTransactions(file: File): Promise<{ count: number }> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch(`${API_BASE_URL}/transactions/upload`, {
+      method: 'POST',
+      headers: {
+        'Authorization': this.token ? `Bearer ${this.token}` : '',
+      },
+      body: formData,
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Upload failed');
+    }
+    
+    return response.json();
+  }
+
+  async analyzeTransactions(query: string, debug?: boolean): Promise<AnalysisResponse> {
     const response = await fetch(`${API_BASE_URL}/analyze`, {
       method: 'POST',
       headers: this.getHeaders(),
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ 
+        query, 
+        debug: debug || false,
+        history: []
+      }),
     });
-
+    
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'Request failed' }));
-      throw new Error(error.detail || error.message || 'Request failed');
+      const error = await response.json();
+      throw new Error(error.detail || 'Analysis failed');
     }
-
-    const result = (await response.json()) as AnalyzeResponse;
-    if (result.conversation_id) {
-      this.setConversationId(result.conversation_id);
-    }
-    return result;
+    
+    return response.json();
   }
-
-
-
 }
-
-
-
-
-
-
 
 export const api = new ApiService();

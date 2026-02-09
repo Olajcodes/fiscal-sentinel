@@ -1,6 +1,79 @@
-import { type ClassValue, clsx } from 'clsx';
-import { twMerge } from 'tailwind-merge';
+// utils/api.ts
+export async function fetchTransactions() {
+  const response = await fetch('/transactions');
+  if (!response.ok) {
+    throw new Error('Failed to fetch transactions');
+  }
+  return response.json();
+}
 
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
+export async function uploadTransactions(file: File) {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await fetch('/transactions/upload', {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to upload transactions');
+  }
+
+  return response.json();
+}
+
+export async function previewTransactions(file: File) {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await fetch('/transactions/preview', {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to preview transactions');
+  }
+
+  return response.json();
+}
+
+export async function confirmUpload(previewId: string, mapping: Record<string, string>) {
+  const response = await fetch('/transactions/confirm', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      preview_id: previewId,
+      mapping,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to confirm upload');
+  }
+
+  return response.json();
+}
+
+export async function analyzeTransactions(query: string, history?: Array<{ query: string; response: string }>) {
+  const response = await fetch('/analyze', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      query,
+      history: history || [],
+      debug: false,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Analysis failed');
+  }
+
+  return response.json();
 }

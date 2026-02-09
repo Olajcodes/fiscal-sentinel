@@ -8,88 +8,41 @@ export interface User {
   isActive: boolean;
 }
 
-export interface UserProfile {
-  id: string;
-  userId: string;
-  role: string;
-  registeredCourses: string[];
-  createdAt: string;
+export interface Transaction {
+  transaction_id: string;
+  date: string;
+  merchant_name: string;
+  amount: number;
+  category: string[];
+  notes: string;
+  currency_symbol: string;
+  currency: string;
 }
 
-
-export interface UserCourse {
-  id: string;
-  userId: string;
-  courseSlug: string;
-  category: string;
-  difficulty: string;
-  progress: number;
-  completed: boolean;
-  lastAccessed: string | null;
-  enrolledAt: string;
+export interface UploadPreviewResponse {
+  preview_id: string;
+  columns: string[];
+  sample_rows: Record<string, any>[];
+  suggested_mapping: Record<string, string>;
+  source: string;
+  schema: Record<string, any>;
+  confidence_stats: {
+    avg: number;
+    min: number;
+    max: number;
+    count: number;
+  };
 }
 
-export interface QuizQuestion {
-  id: string;
-  quizId: string;
-  question: string;
-  options: string[];
-  correctAnswer?: string;
-  explanation: string;
-  points: number;
-  questionType: 'single' | 'multiple';
-  timeLimit: number;
+export interface AnalysisRequest {
+  query: string;
+  history?: any[];
+  debug?: boolean;
 }
 
-export interface QuizWithDetails {
-  id: string;
-  title: string;
-  courseSlug?: string;
-  totalQuestions?: number;
-  duration?: number; // seconds
-}
-
-export interface QuizAttempt {
-  id: string;
-  userId: string;
-  quizId: string;
-  courseSlug?: string;
-  score: number;
-  passed: boolean;
-  attemptedAt: string;
-}
-
-
-export interface CourseCatalog {
-  id: string;
-  slug: string;
-  title: string;
-  description: string;
-  category: string;
-  difficulty: string;
-  duration: number;
-  totalQuizzes: number;
-  totalLessons: number;
-  instructor: string;
-  prerequisites: string[];
-  tags: string[];
-  thumbnail: string;
-  createdAt: string;
-}
-
-
-export interface GameProgress {
-  id: string;
-  userId: string;
-  gameId: string;
-  level: number;
-  xp: number;
-  lastPlayed: string | null;
-}
-
-export interface AuthResponse {
-  message: string;
-  data: User;
+export interface AnalysisResponse {
+  response: string;
+  debug?: any;
 }
 
 export interface ApiResponse<T> {
@@ -102,111 +55,12 @@ export interface LoginCredentials {
   password: string;
 }
 
-
 export interface RegisterCredentials {
   email: string;
   password: string;
   firstName: string;
   lastName: string;
   role?: string;
-}
-
-export interface QuizSubmission {
-  quizId: string;
-  score: number;
-  courseSlug?: string;
-}
-
-
-export interface CourseEnrollment {
-  courseSlug: string;
-  category?: string;
-  difficulty?: string;
-}
-
-
-
-
-export interface Feature {
-  icon: string;
-  title: string;
-  description: string;
-}
-
-export interface Testimonial {
-  id: number;
-  text: string;
-  author: string;
-  role: string;
-  initials: string;
-}
-
-export interface ColorPalette {
-  name: string;
-  description: string;
-  colors: string[];
-}
-
-export interface Profile {
-  name: string;
-  role: string;
-  image: string;
-  skills: string[];
-  progress: {
-    label: string;
-    value: number;
-  }[];
-}
-
-
-
-
-
-
-export interface AdminStats {
-  totalUsers: number;
-  totalCourses: number;
-  totalQuizzes: number;
-  totalQuestions: number;
-  activeUsers: number;
-  recentRegistrations: number;
-  averageProgress: number;
-}
-
-
-
-export interface UserWithDetails extends User {
-  createdAt: string;
-  lastLogin: string | null;
-  coursesCount: number;
-  quizAttempts: number;
-}
-
-export interface QuestionWithDetails extends QuizQuestion {
-  difficulty: string;
-  createdAt: string;
-  updatedAt: string;
-  createdBy: string;
-  isActive: boolean;
-}
-
-export interface CourseWithDetails extends CourseCatalog {
-  enrolledCount: number;
-  averageRating: number;
-  completionRate: number;
-  isPublished: boolean;
-}
-
-
-
-export interface AdminFilters {
-  startDate?: string;
-  endDate?: string;
-  role?: string;
-  status?: string;
-  category?: string;
-  difficulty?: string;
-  search?: string;
 }
 
 export interface ChartData {
@@ -219,7 +73,6 @@ export interface ChartData {
     borderWidth: number;
   }[];
 }
-
 
 export interface RecentActivity {
   id: string;
