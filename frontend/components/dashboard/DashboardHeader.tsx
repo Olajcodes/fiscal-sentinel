@@ -13,15 +13,15 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, onUploadClick }
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex h-14 md:h-16 items-center justify-between">
           {/* Logo */}
-          <Link href="/dashboard" className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2">
             <div className="flex h-7 w-7 md:h-8 md:w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-purple-600">
               <Shield className="h-4 w-4 md:h-5 md:w-5 text-white" />
             </div>
-            <div className="hidden sm:block">
-              <span className="text-lg md:text-xl font-bold text-gray-900">Fiscal Sentinel</span>
-              <div className="-mt-1 text-xs text-gray-500">Dashboard</div>
+            <div className="hidden sm:flex flex-col">
+              <Link href="/" className="text-lg md:text-xl font-bold text-gray-900">Fiscal Sentinel</Link>
+              <Link href="/dashboard" className="-mt-1 text-xs text-gray-500">Dashboard</Link>
             </div>
-          </Link>
+          </div>
 
           {/* Search and Actions */}
           <div className="flex items-center space-x-2 md:space-x-4">

@@ -248,45 +248,162 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* How It Works Section */}
-      <section id="how-it-works" className="py-20 px-4">
+      {/* How It Works Section with Icons */}
+      <section id="how-it-works" className="py-20 px-4 bg-gradient-to-b from-white to-gray-50">
         <div className="container mx-auto max-w-6xl">
           <div className="mb-16 text-center">
-            <h2 className="mb-4 text-3xl font-bold text-foreground md:text-4xl">
-              How Fiscal Sentinel Works
+            <div className="inline-flex items-center rounded-full bg-gradient-to-r from-blue-100 to-purple-100 px-4 py-2 mb-4">
+              <span className="text-sm font-semibold text-blue-700 uppercase tracking-wide">Simple Process</span>
+            </div>
+            <h2 className="mb-4 text-3xl font-bold text-gray-900 md:text-4xl lg:text-5xl">
+              Your Financial Protection Journey
             </h2>
-            <p className="mx-auto max-w-2xl text-lg text-muted-foreground">
-              Three simple steps to take back control of your finances
+            <p className="mx-auto max-w-2xl text-lg text-gray-600">
+              From connection to resolution in three seamless steps
             </p>
           </div>
 
-          <div className="grid gap-8 md:grid-cols-3">
-            {[1, 2, 3].map((step) => (
-              <div key={step} className="flex flex-col items-center text-center">
-                <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-accent/10 text-2xl font-bold text-accent">
-                  {step}
+          <div className="grid gap-8 lg:grid-cols-3">
+            <div className="relative group">
+              <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-300"></div>
+              <div className="relative rounded-2xl border border-gray-200 bg-white p-8 shadow-sm transition-all hover:shadow-xl">
+                <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+                  <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
                 </div>
-                <h3 className="mb-3 text-xl font-bold">
-                  {step === 1
-                    ? 'Connect Securely'
-                    : step === 2
-                    ? 'AI Analysis'
-                    : 'Resolve & Save'}
-                </h3>
-                <p className="text-muted-foreground">
-                  {step === 1 &&
-                    'Link your bank accounts with bank-level security. We use read-only access and 256-bit encryption.'}
-                  {step === 2 &&
-                    'Our AI scans transactions, identifies issues, and researches applicable laws for dispute justification.'}
-                  {step === 3 &&
-                    'Review auto-generated dispute letters, sign with one click, and let us handle the bureaucracy.'}
+                <div className="mb-4 flex items-center">
+                  <span className="mr-3 flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-sm font-bold text-blue-600">1</span>
+                  <h3 className="text-xl font-bold text-gray-900">Secure Connection</h3>
+                </div>
+                <p className="mb-6 text-gray-600">
+                  Connect your bank accounts with military-grade encryption. We use read-only access — your money stays safe.
                 </p>
+                <ul className="space-y-2">
+                  <li className="flex items-center text-sm text-gray-500">
+                    <svg className="mr-2 h-4 w-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    Bank-level 256-bit encryption
+                  </li>
+                  <li className="flex items-center text-sm text-gray-500">
+                    <svg className="mr-2 h-4 w-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    Read-only access only
+                  </li>
+                  <li className="flex items-center text-sm text-gray-500">
+                    <svg className="mr-2 h-4 w-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    GDPR & CCPA compliant
+                  </li>
+                </ul>
               </div>
-            ))}
+            </div>
+
+            <div className="relative group">
+              <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-300"></div>
+              <div className="relative rounded-2xl border border-gray-200 bg-white p-8 shadow-sm transition-all hover:shadow-xl">
+                <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 text-white">
+                  <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                  </svg>
+                </div>
+                <div className="mb-4 flex items-center">
+                  <span className="mr-3 flex h-8 w-8 items-center justify-center rounded-full bg-purple-100 text-sm font-bold text-purple-600">2</span>
+                  <h3 className="text-xl font-bold text-gray-900">AI Analysis</h3>
+                </div>
+                <p className="mb-6 text-gray-600">
+                  Our advanced AI scans every transaction, identifies hidden fees, and researches applicable laws in real-time.
+                </p>
+                <ul className="space-y-2">
+                  <li className="flex items-center text-sm text-gray-500">
+                    <svg className="mr-2 h-4 w-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    24/7 transaction monitoring
+                  </li>
+                  <li className="flex items-center text-sm text-gray-500">
+                    <svg className="mr-2 h-4 w-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    Legal RAG for dispute justification
+                  </li>
+                  <li className="flex items-center text-sm text-gray-500">
+                    <svg className="mr-2 h-4 w-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    Smart anomaly detection
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="relative group">
+              <div className="absolute -inset-1 bg-gradient-to-r from-green-600 to-teal-600 rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-300"></div>
+              <div className="relative rounded-2xl border border-gray-200 bg-white p-8 shadow-sm transition-all hover:shadow-xl">
+                <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-xl bg-gradient-to-br from-green-500 to-green-600 text-white">
+                  <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div className="mb-4 flex items-center">
+                  <span className="mr-3 flex h-8 w-8 items-center justify-center rounded-full bg-green-100 text-sm font-bold text-green-600">3</span>
+                  <h3 className="text-xl font-bold text-gray-900">Resolve & Save</h3>
+                </div>
+                <p className="mb-6 text-gray-600">
+                  Review auto-generated legal letters, sign with one click, and watch us handle the corporate bureaucracy for you.
+                </p>
+                <ul className="space-y-2">
+                  <li className="flex items-center text-sm text-gray-500">
+                    <svg className="mr-2 h-4 w-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    Auto-generated legal letters
+                  </li>
+                  <li className="flex items-center text-sm text-gray-500">
+                    <svg className="mr-2 h-4 w-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    One-click signature & send
+                  </li>
+                  <li className="flex items-center text-sm text-gray-500">
+                    <svg className="mr-2 h-4 w-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    Average $124 monthly savings
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          {/* Process flow visualization */}
+          <div className="mt-16 hidden lg:block">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-green-500 rounded-full"></div>
+              </div>
+              <div className="relative flex justify-between">
+                {[1, 2, 3].map((step) => (
+                  <div key={step} className="flex flex-col items-center">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white border-4 border-blue-500 shadow-lg">
+                      <span className="font-bold text-gray-900">{step}</span>
+                    </div>
+                    <div className="mt-4 h-4 w-1 bg-gray-200 rounded-full"></div>
+                    <div className="mt-2 text-sm font-medium text-gray-600">
+                      {step === 1 ? 'Connect' : step === 2 ? 'Analyze' : 'Resolve'}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
+      
         {/* Security Section */}
       <section id="security" className="py-20 px-4 bg-gradient-to-r from-blue-50 to-purple-50">
         <div className="container mx-auto max-w-6xl">
