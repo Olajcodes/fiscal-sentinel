@@ -230,3 +230,24 @@ export interface RecentActivity {
   timestamp: string;
   icon: string;
 }
+
+export type ChatRole = 'user' | 'assistant';
+
+export interface ChatMessage {
+  role: ChatRole;
+  content: string;
+}
+
+export interface AnalyzeRequest {
+  query: string;
+  history?: ChatMessage[];
+  debug?: boolean;
+  conversation_id?: string;
+}
+
+export interface AnalyzeResponse {
+  response: string;
+  conversation_id?: string;
+  history?: ChatMessage[];
+  debug?: unknown;
+}

@@ -113,14 +113,17 @@ def _api_post_file(path: str, uploaded_file):
 
 
 def send_message(user_text: str):
-    history = st.session_state.msgs[:]
     with st.chat_message("user"):
         st.write(user_text)
 
     with st.spinner("Analyzing..."):
+        payload_body = {"query": user_text, "debug": st.session_state.debug_mode}
+        conversation_id = st.session_state.get("conversation_id")
+        if conversation_id:
+            payload_body["conversation_id"] = conversation_id
         payload, error = _api_post_json(
             "/analyze",
-            {"query": user_text, "history": history, "debug": st.session_state.debug_mode},
+            payload_body,
         )
         if error:
             st.error(error)
@@ -129,6 +132,8 @@ def send_message(user_text: str):
         if not reply:
             st.error("Backend response was missing the 'response' field.")
             return
+        if payload and payload.get("conversation_id"):
+            st.session_state.conversation_id = payload["conversation_id"]
         debug_payload = (payload or {}).get("debug") if st.session_state.debug_mode else None
 
     st.session_state.msgs.append({"role": "user", "content": user_text})
@@ -168,6 +173,8 @@ if "msgs" not in st.session_state:
     st.session_state.msgs = []
 if "offer_letter" not in st.session_state:
     st.session_state.offer_letter = False
+if "conversation_id" not in st.session_state:
+    st.session_state.conversation_id = None
 if "tx" not in st.session_state:
     st.session_state.tx = []
 if "preview" not in st.session_state:

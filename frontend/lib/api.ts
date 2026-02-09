@@ -1,9 +1,10 @@
 // lib/api.ts
-import { 
-  User, UserCourse, QuizQuestion, QuizAttempt, 
+import {
+  User, UserCourse, QuizQuestion, QuizAttempt,
   CourseCatalog, GameProgress, LoginCredentials,
   RegisterCredentials, QuizSubmission, CourseEnrollment,
-  ApiResponse, RecentActivity, CourseWithDetails, QuestionWithDetails,AdminFilters, ChartData,AdminStats, UserWithDetails
+  ApiResponse, RecentActivity, CourseWithDetails, QuestionWithDetails, AdminFilters, ChartData, AdminStats, UserWithDetails,
+  AnalyzeRequest, AnalyzeResponse,
 } from './types';
 
 
@@ -11,10 +12,12 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 class ApiService {
   private token: string | null = null;
+  private conversationId: string | null = null;
 
   constructor() {
     if (typeof window !== 'undefined') {
       this.token = localStorage.getItem('token');
+      this.conversationId = localStorage.getItem('conversation_id');
     }
   }
 
@@ -112,6 +115,49 @@ class ApiService {
       headers: this.getHeaders(),
     });
     return this.handleResponse<void>(response);
+  }
+
+  private setConversationId(conversationId: string | null) {
+    this.conversationId = conversationId;
+    if (typeof window !== 'undefined') {
+      if (conversationId) {
+        localStorage.setItem('conversation_id', conversationId);
+      } else {
+        localStorage.removeItem('conversation_id');
+      }
+    }
+  }
+
+  getConversationId(): string | null {
+    return this.conversationId;
+  }
+
+  resetConversation(): void {
+    this.setConversationId(null);
+  }
+
+  async analyze(request: AnalyzeRequest): Promise<AnalyzeResponse> {
+    const payload: AnalyzeRequest = { ...request };
+    if (!payload.conversation_id && this.conversationId) {
+      payload.conversation_id = this.conversationId;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/analyze`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Request failed' }));
+      throw new Error(error.detail || error.message || 'Request failed');
+    }
+
+    const result = (await response.json()) as AnalyzeResponse;
+    if (result.conversation_id) {
+      this.setConversationId(result.conversation_id);
+    }
+    return result;
   }
 
 

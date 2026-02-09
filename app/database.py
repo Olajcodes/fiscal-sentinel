@@ -15,3 +15,4 @@ if DB_NAME:
 users_collection = db.users
 admins_collection = db.admins
 user_profiles_collection = db.user_profiles
+conversations_collection = db.conversations
