@@ -382,7 +382,7 @@ const HomePage = () => {
           {/* Process flow visualization */}
           <div className="mt-16 hidden lg:block">
             <div className="relative">
-              <div className="absolute inset-0 flex items-center">
+              <div className="absolute inset-0 flex items-center mt-[-3.5rem]">
                 <div className="w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-green-500 rounded-full"></div>
               </div>
               <div className="relative flex justify-between">
@@ -403,7 +403,7 @@ const HomePage = () => {
         </div>
       </section>
 
-      
+
         {/* Security Section */}
       <section id="security" className="py-20 px-4 bg-gradient-to-r from-blue-50 to-purple-50">
         <div className="container mx-auto max-w-6xl">
