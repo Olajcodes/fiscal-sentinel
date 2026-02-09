@@ -23,7 +23,10 @@ const ChatPage = () => {
     setError(null);
     setLoading(true);
 
-    const optimistic = [...messages, { role: 'user', content: text }];
+    const optimistic: ChatMessage[] = [
+      ...messages,
+      { role: 'user', content: text },
+    ];
     setMessages(optimistic);
 
     try {
@@ -31,7 +34,10 @@ const ChatPage = () => {
       if (result.history && result.history.length) {
         setMessages(result.history);
       } else {
-        setMessages([...optimistic, { role: 'assistant', content: result.response }]);
+        setMessages([
+          ...optimistic,
+          { role: 'assistant', content: result.response },
+        ]);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send message');

@@ -22,10 +22,10 @@ export interface Transaction {
 export interface UploadPreviewResponse {
   preview_id: string;
   columns: string[];
-  sample_rows: Record<string, any>[];
+  sample_rows: Record<string, unknown>[];
   suggested_mapping: Record<string, string>;
   source: string;
-  schema: Record<string, any>;
+  schema: Record<string, unknown>;
   confidence_stats: {
     avg: number;
     min: number;
@@ -36,13 +36,13 @@ export interface UploadPreviewResponse {
 
 export interface AnalysisRequest {
   query: string;
-  history?: any[];
+  history?: ChatMessage[];
   debug?: boolean;
 }
 
 export interface AnalysisResponse {
   response: string;
-  debug?: any;
+  debug?: unknown;
 }
 
 export interface ApiResponse<T> {

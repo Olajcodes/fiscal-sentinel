@@ -58,7 +58,7 @@ export async function confirmUpload(previewId: string, mapping: Record<string, s
   return response.json();
 }
 
-export async function analyzeTransactions(query: string, history?: Array<{ query: string; response: string }>) {
+export async function analyzeTransactions(query: string, conversationId?: string) {
   const response = await fetch('/analyze', {
     method: 'POST',
     headers: {
@@ -66,7 +66,7 @@ export async function analyzeTransactions(query: string, history?: Array<{ query
     },
     body: JSON.stringify({
       query,
-      history: history || [],
+      conversation_id: conversationId || undefined,
       debug: false,
     }),
   });

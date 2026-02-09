@@ -1,8 +1,14 @@
 // lib/api.ts
-import { 
-  User, LoginCredentials, RegisterCredentials, ApiResponse, 
-  RecentActivity, ChartData, Transaction, 
-  UploadPreviewResponse, AnalysisRequest, AnalysisResponse 
+import {
+  User,
+  LoginCredentials,
+  RegisterCredentials,
+  ApiResponse,
+  Transaction,
+  UploadPreviewResponse,
+  AnalyzeRequest,
+  AnalyzeResponse,
+  AnalysisResponse,
 } from './types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://fiscal-sentinel-production.up.railway.app';
@@ -76,6 +82,57 @@ class ApiService {
       localStorage.setItem('user', JSON.stringify(result.data));
     }
     
+    return result;
+  }
+
+  private setConversationId(conversationId: string | null) {
+    this.conversationId = conversationId;
+    if (typeof window !== 'undefined') {
+      if (conversationId) {
+        localStorage.setItem('conversation_id', conversationId);
+      } else {
+        localStorage.removeItem('conversation_id');
+      }
+    }
+  }
+
+  getConversationId(): string | null {
+    return this.conversationId;
+  }
+
+  resetConversation(): void {
+    this.setConversationId(null);
+  }
+
+  async analyze(request: AnalyzeRequest): Promise<AnalyzeResponse> {
+    const payload: AnalyzeRequest = { ...request };
+    if (!payload.conversation_id && this.conversationId) {
+      payload.conversation_id = this.conversationId;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/analyze`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(payload),
+    });
+
+    const data = (await response.json().catch(() => ({}))) as {
+      response?: string;
+      conversation_id?: string;
+      history?: Array<{ role: 'user' | 'assistant'; content: string }>;
+      debug?: unknown;
+      detail?: string;
+      message?: string;
+    };
+    if (!response.ok) {
+      const detail = data.detail || data.message;
+      throw new Error(detail || 'Analysis failed');
+    }
+
+    const result = data as AnalyzeResponse;
+    if (result.conversation_id) {
+      this.setConversationId(result.conversation_id);
+    }
     return result;
   }
 
@@ -191,22 +248,8 @@ class ApiService {
   }
 
   async analyzeTransactions(query: string, debug?: boolean): Promise<AnalysisResponse> {
-    const response = await fetch(`${API_BASE_URL}/analyze`, {
-      method: 'POST',
-      headers: this.getHeaders(),
-      body: JSON.stringify({ 
-        query, 
-        debug: debug || false,
-        history: []
-      }),
-    });
-    
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || 'Analysis failed');
-    }
-    
-    return response.json();
+    const result = await this.analyze({ query, debug: debug || false });
+    return { response: result.response, debug: result.debug };
   }
 }
 
