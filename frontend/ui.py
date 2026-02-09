@@ -1,7 +1,21 @@
+import os
 import streamlit as st
 import requests
 
-API_URL = "http://localhost:8000"
+API_URL = os.getenv("API_URL", "").strip()
+if not API_URL:
+    try:
+        API_URL = st.secrets.get("API_URL", "").strip()
+    except Exception:
+        API_URL = ""
+if not API_URL:
+    API_URL = "http://localhost:8000"
+
+api_label = API_URL.replace("https://", "").replace("http://", "")
+st.markdown(
+    f"<div style='color:#6b7280; font-size:0.9rem; margin-bottom:0.75rem;'>Connected API: {api_label}</div>",
+    unsafe_allow_html=True,
+)
 st.set_page_config(page_title="Fiscal Sentinel", page_icon="FS", layout="wide")
 
 LOGO_SVG = """
@@ -160,6 +174,8 @@ if "preview" not in st.session_state:
     st.session_state.preview = None
 if "debug_mode" not in st.session_state:
     st.session_state.debug_mode = False
+if "vector_db_status" not in st.session_state:
+    st.session_state.vector_db_status = None
 
 tab_tx, tab_chat = st.tabs(["Transactions", "Assistant"])
 
@@ -246,6 +262,26 @@ with tab_tx:
     with col_right:
         st.subheader("Current Transactions")
         st.caption("Loaded transactions are used for analysis and letter drafting.")
+
+        status_cols = st.columns(2)
+        with status_cols[0]:
+            if st.button("Check Vector DB"):
+                status_payload, error = _api_get("/vector-db/health")
+                if error:
+                    st.error(error)
+                    st.session_state.vector_db_status = None
+                else:
+                    st.session_state.vector_db_status = status_payload
+
+        with status_cols[1]:
+            status = st.session_state.vector_db_status
+            if status:
+                provider = status.get("provider", "unknown")
+                collection = status.get("collection", "unknown")
+                vectors = status.get("vectors_count", 0)
+                st.write(f"Provider: {provider}")
+                st.write(f"Collection: {collection}")
+                st.write(f"Vectors: {vectors}")
 
         load_cols = st.columns(2)
         with load_cols[0]:

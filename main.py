@@ -12,12 +12,17 @@ from app.data.bank_transactions import (
 )
 from app.data.preview_store import delete_preview, load_preview, save_preview
 from app.data.mock_plaid import get_mock_transactions
+from app.data.vector_db import LegalKnowledgeBase
 import uvicorn
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.services import auth_services
 
-app = FastAPI()
+app = FastAPI(
+    title="Fiscal Sentinel API",
+    description="Backend API for transaction analysis, document ingestion, and dispute-letter assistance.",
+    version="1.0.0",
+)
 
 
 
@@ -65,45 +70,74 @@ class PreviewResponse(BaseModel):
     confidence_stats: dict
 
 
-
-
-
-@app.get("/")
+@app.get("/", summary="Health check", description="Basic health endpoint.")
 def root():
     return {"message": "Fiscal Sentinel API up and running"}
 
-
-
-
-
-
 # Auth Routes
-@app.post("/register", status_code=201)
+@app.post(
+    "/register",
+    status_code=201,
+    summary="Register user",
+    description="Create a new user account.",
+    tags=["auth"],
+)
 async def register_user(payload: auth_services.UserCreate):
     return await auth_services.AuthService.register_user(payload)
 
-@app.post("/login")
+@app.post(
+    "/login",
+    summary="Login user",
+    description="Authenticate a user and return a login response.",
+    tags=["auth"],
+)
 async def login_user(payload: auth_services.UserLogin):
     return await auth_services.AuthService.login_user(payload)
 
 # User Routes
-@app.get("/users")
+@app.get(
+    "/users",
+    summary="List users",
+    description="Return all users in the database.",
+    tags=["users"],
+)
 async def get_all_users():
     return await auth_services.UserService.get_all_users()
 
-@app.get("/users/{user_id}")
+@app.get(
+    "/users/{user_id}",
+    summary="Get user",
+    description="Return a single user by ID.",
+    tags=["users"],
+)
 async def get_user(user_id: str):
     return await auth_services.UserService.get_user(user_id)
 
-@app.put("/users/{user_id}")
+@app.put(
+    "/users/{user_id}",
+    summary="Update user",
+    description="Replace a user document by ID.",
+    tags=["users"],
+)
 async def update_user(user_id: str, payload: auth_services.UserUpdate):
     return await auth_services.UserService.update_user(user_id, payload)
 
-@app.patch("/users/{user_id}")
+@app.patch(
+    "/users/{user_id}",
+    summary="Patch user",
+    description="Partially update a user document by ID.",
+    tags=["users"],
+)
 async def patch_user(user_id: str, payload: auth_services.UserPatch):
     return await auth_services.UserService.patch_user(user_id, payload)
 
-@app.delete("/users/{user_id}", status_code=204)
+@app.delete(
+    "/users/{user_id}",
+    status_code=204,
+    summary="Delete user",
+    description="Delete a user by ID.",
+    tags=["users"],
+)
 async def delete_user(user_id: str):
     await auth_services.UserService.delete_user(user_id)
 
@@ -114,12 +148,23 @@ async def delete_user(user_id: str):
 
 
 
-@app.get("/transactions")
+@app.get(
+    "/transactions",
+    summary="List transactions",
+    description="Return stored transactions or fall back to mock data.",
+    tags=["transactions"],
+)
 def get_tx():
     stored = load_transactions()
     return stored if stored else get_mock_transactions()
 
-@app.post("/transactions/preview", response_model=PreviewResponse)
+@app.post(
+    "/transactions/preview",
+    response_model=PreviewResponse,
+    summary="Preview transactions upload",
+    description="Parse a CSV/PDF upload and return columns, sample rows, and mapping suggestions.",
+    tags=["transactions"],
+)
 async def preview_transactions(file: UploadFile = File(...)):
     if not file:
         raise HTTPException(status_code=400, detail="Missing file upload.")
@@ -148,7 +193,12 @@ async def preview_transactions(file: UploadFile = File(...)):
         ),
     }
 
-@app.post("/transactions/confirm")
+@app.post(
+    "/transactions/confirm",
+    summary="Confirm transaction mapping",
+    description="Apply a user-provided column mapping to the preview and persist transactions.",
+    tags=["transactions"],
+)
 def confirm_transactions(req: PreviewConfirmRequest):
     try:
         preview = load_preview(req.preview_id)
@@ -167,7 +217,12 @@ def confirm_transactions(req: PreviewConfirmRequest):
     delete_preview(req.preview_id)
     return {"count": len(transactions)}
 
-@app.post("/transactions/upload")
+@app.post(
+    "/transactions/upload",
+    summary="Upload transactions",
+    description="Upload a CSV or PDF and persist parsed transactions directly.",
+    tags=["transactions"],
+)
 async def upload_transactions(file: UploadFile = File(...)):
     if not file:
         raise HTTPException(status_code=400, detail="Missing file upload.")
@@ -185,7 +240,12 @@ async def upload_transactions(file: UploadFile = File(...)):
     save_transactions(transactions, source=file.filename or "upload")
     return {"count": len(transactions)}
 
-@app.post("/analyze")
+@app.post(
+    "/analyze",
+    summary="Analyze query",
+    description="Run the agent over a user query and current transactions.",
+    tags=["analysis"],
+)
 def analyze(req: Request):
     try:
         tx = load_transactions() or get_mock_transactions()
@@ -194,6 +254,20 @@ def analyze(req: Request):
             return {"response": response, "debug": debug_payload}
         res = run_sentinel(req.query, tx, history=req.history)
         return {"response": res}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+@app.get(
+    "/vector-db/health",
+    summary="Vector DB health",
+    description="Report active vector DB provider, collection, and vector count.",
+    tags=["infra"],
+)
+def vector_db_health():
+    try:
+        kb = LegalKnowledgeBase()
+        stats = kb.get_collection_stats()
+        return {"provider": kb.provider, "collection": kb.collection_name, **stats}
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
