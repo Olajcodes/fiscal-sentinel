@@ -25,42 +25,70 @@ def _sanitize_messages(messages: List[Dict[str, str]]) -> List[Dict[str, str]]:
     return cleaned
 
 
-async def get_or_create_conversation(conversation_id: Optional[str]) -> str:
+async def get_or_create_conversation(conversation_id: Optional[str], user_id: Optional[str]) -> str:
+    query: Dict[str, str] = {}
     if conversation_id:
-        existing = await conversations_collection.find_one({"conversation_id": conversation_id})
+        query["conversation_id"] = conversation_id
+        if user_id:
+            existing_any = await conversations_collection.find_one({"conversation_id": conversation_id})
+            if existing_any and existing_any.get("user_id") and existing_any.get("user_id") != user_id:
+                conversation_id = None
+                query = {}
+    if user_id:
+        query["user_id"] = user_id
+    if query:
+        existing = await conversations_collection.find_one(query)
         if existing:
-            return conversation_id
+            return existing["conversation_id"]
+
     conversation_id = conversation_id or str(uuid4())
-    await conversations_collection.insert_one(
-        {
-            "conversation_id": conversation_id,
-            "messages": [],
-            "created_at": _now_iso(),
-            "updated_at": _now_iso(),
-        }
-    )
+    doc = {
+        "conversation_id": conversation_id,
+        "messages": [],
+        "created_at": _now_iso(),
+        "updated_at": _now_iso(),
+    }
+    if user_id:
+        doc["user_id"] = user_id
+    await conversations_collection.insert_one(doc)
     return conversation_id
 
 
-async def append_messages(conversation_id: str, messages: List[Dict[str, str]], limit: int = HISTORY_LIMIT) -> None:
+async def append_messages(
+    conversation_id: str,
+    messages: List[Dict[str, str]],
+    limit: int = HISTORY_LIMIT,
+    user_id: Optional[str] = None,
+) -> None:
     cleaned = _sanitize_messages(messages)
     if not cleaned:
         return
+    query: Dict[str, str] = {"conversation_id": conversation_id}
+    if user_id:
+        query["user_id"] = user_id
     await conversations_collection.update_one(
-        {"conversation_id": conversation_id},
+        query,
         {
             "$push": {"messages": {"$each": cleaned, "$slice": -abs(limit)}},
             "$set": {"updated_at": _now_iso()},
+            "$setOnInsert": {
+                "created_at": _now_iso(),
+                **({"user_id": user_id} if user_id else {}),
+            },
         },
         upsert=True,
     )
 
 
-async def get_history(conversation_id: str, limit: int = HISTORY_LIMIT) -> List[Dict[str, str]]:
-    doc = await conversations_collection.find_one(
-        {"conversation_id": conversation_id},
-        {"messages": {"$slice": -abs(limit)}},
-    )
+async def get_history(
+    conversation_id: str,
+    limit: int = HISTORY_LIMIT,
+    user_id: Optional[str] = None,
+) -> List[Dict[str, str]]:
+    query: Dict[str, str] = {"conversation_id": conversation_id}
+    if user_id:
+        query["user_id"] = user_id
+    doc = await conversations_collection.find_one(query, {"messages": {"$slice": -abs(limit)}})
     if not doc or not doc.get("messages"):
         return []
     history: List[Dict[str, str]] = []

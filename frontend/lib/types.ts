@@ -96,6 +96,7 @@ export interface AnalyzeRequest {
   history?: ChatMessage[];
   debug?: boolean;
   conversation_id?: string;
+  user_id?: string;
 }
 
 export interface AnalyzeResponse {

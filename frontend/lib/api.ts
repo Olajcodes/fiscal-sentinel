@@ -106,6 +106,19 @@ class ApiService {
 
   async analyze(request: AnalyzeRequest): Promise<AnalyzeResponse> {
     const payload: AnalyzeRequest = { ...request };
+    if (!payload.user_id && typeof window !== 'undefined') {
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        try {
+          const parsed = JSON.parse(userStr) as { id?: string };
+          if (parsed?.id) {
+            payload.user_id = parsed.id;
+          }
+        } catch {
+          // Ignore malformed user cache.
+        }
+      }
+    }
     if (!payload.conversation_id && this.conversationId) {
       payload.conversation_id = this.conversationId;
     }

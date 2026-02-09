@@ -48,6 +48,7 @@ class Request(BaseModel):
     history: list | None = None
     debug: bool | None = False
     conversation_id: str | None = None
+    user_id: str | None = None
 
 
 class PreviewConfirmRequest(BaseModel):
@@ -260,10 +261,11 @@ async def analyze(req: Request):
         tx = load_transactions() or get_mock_transactions()
         history = req.history or []
         conversation_id = req.conversation_id
+        user_id = req.user_id
 
         if conversation_id or req.history is None:
-            conversation_id = await get_or_create_conversation(conversation_id)
-            history = await get_history(conversation_id, limit=HISTORY_LIMIT)
+            conversation_id = await get_or_create_conversation(conversation_id, user_id)
+            history = await get_history(conversation_id, limit=HISTORY_LIMIT, user_id=user_id)
 
         if req.debug:
             response, debug_payload = run_sentinel(req.query, tx, history=history, debug=True)
@@ -277,6 +279,7 @@ async def analyze(req: Request):
                     conversation_id,
                     new_messages,
                     limit=HISTORY_LIMIT,
+                    user_id=user_id,
                 )
             return {
                 "response": response,
@@ -296,6 +299,7 @@ async def analyze(req: Request):
                 conversation_id,
                 new_messages,
                 limit=HISTORY_LIMIT,
+                user_id=user_id,
             )
         return {
             "response": response,
